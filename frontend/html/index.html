@@ -80,6 +80,17 @@
       .delete-btn:hover {
         background: #c82333;
       }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
     </style>
   </head>
   <body>
@@ -91,14 +102,16 @@
         type="text"
         placeholder="Enter a name (≤50 chars)"
         maxlength="50"
+        aria-label="Name"
       />
-      <button id="addBtn">Add</button>
+      <button id="addBtn" aria-label="Add name">Add</button>
     </div>
 
     <div id="error" class="error"></div>
+    <div id="live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
     <h2>List</h2>
-    <ul id="list"></ul>
+    <ul id="list" aria-label="Names list"></ul>
 
     <script src="./app.js"></script>
   </body>
