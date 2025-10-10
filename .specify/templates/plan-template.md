@@ -31,7 +31,20 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+The following MUST be addressed in this plan to comply with the Constitution:
+
+- Code Quality:
+  - Declare lint/format tools and rules (e.g., black + isort + ruff, ESLint + Prettier).
+  - Identify any complexity hotspots and intended refactors.
+- Testing:
+  - List required test types (unit, contract/integration, regression) and coverage targets
+    (≥80% overall, ≥90% for critical paths). Explain any exceptions.
+  - Describe test isolation/mocking strategy for network/time.
+- User Experience:
+  - Define UI states for each surface: loading, empty, error, success.
+  - Note accessibility criteria (WCAG 2.1 AA) and how they will be validated.
+- Performance:
+  - Describe measurement approach and how regressions will be detected in CI.
 
 ## Project Structure
 

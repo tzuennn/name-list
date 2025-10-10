@@ -33,6 +33,20 @@
 1. **Given** [initial state], **When** [action], **Then** [expected outcome]
 2. **Given** [initial state], **When** [action], **Then** [expected outcome]
 
+**UX States**:
+- Loading: [Describe visual/behavior]
+- Empty: [Describe visual/behavior]
+- Error: [Describe message, recovery action]
+- Success: [Describe confirmation and next step]
+
+**Accessibility (WCAG 2.1 AA)**:
+- Landmarks/semantics: [Describe]
+- Keyboard flow and focus order: [Describe]
+- Contrast and labels: [Describe]
+
+**Performance**:
+- Measurement method: [e.g., Lighthouse, timings, profiling]
+
 ---
 
 ### User Story 2 - [Brief Title] (Priority: P2)
@@ -74,6 +88,8 @@
 
 - What happens when [boundary condition]?
 - How does system handle [error scenario]?
+- What is the behavior under slow network / degraded backend?
+- What are the empty states for each key view?
 
 ## Requirements *(mandatory)*
 
@@ -113,3 +129,5 @@
 - **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
 - **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
 - **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+- **SC-005**: [Accessibility metric, e.g., "All interactive elements keyboard accessible, Lighthouse a11y ≥ 90"]
+- **SC-006**: [Performance metric, e.g., "p95 API latency ≤ 250 ms; JS payload ≤ 200 KB gzip"]
