@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Names API Contract",
+  "type": "object",
+  "properties": {
+    "GET /api/names": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "name", "created_at"]
+      }
+    },
+    "POST /api/names": {
+      "request": {
+        "type": "object",
+        "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 50 } },
+        "required": ["name"]
+      },
+      "responses": {
+        "201": { "type": "object", "properties": { "message": { "type": "string" } }, "required": ["message"] },
+        "400": { "type": "object", "properties": { "error": { "type": "string" } }, "required": ["error"] }
+      }
+    },
+    "DELETE /api/names/{id}": {
+      "responses": {
+        "200": { "type": "object", "properties": { "message": { "type": "string" } }, "required": ["message"] }
+      }
+    }
+  }
+}
