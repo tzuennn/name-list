@@ -159,7 +159,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX [P] Additional unit and integration tests in tests/
 - [ ] TXXX Accessibility validation sweep (keyboard, contrast, ARIA)
-- [ ] TXXX Security hardening
+- [ ] TXXX Security ing
 - [ ] TXXX Run quickstart.md validation
 
 ---
