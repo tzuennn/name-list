@@ -1,0 +1,84 @@
+/* Sorting Controls Component Styles */
+
+.sort-controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sort-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.sort-label {
+  font-weight: 500;
+  color: #333;
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.sort-btn {
+  background: #f8f9fa;
+  color: #333;
+  border: 1px solid #ccc;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.sort-btn:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.sort-btn:focus {
+  outline: 2px solid #007acc;
+  outline-offset: 2px;
+}
+
+.sort-btn[aria-pressed='true'] {
+  background: #007acc;
+  color: white;
+  border-color: #007acc;
+  font-weight: 500;
+}
+
+.sort-btn[aria-pressed='true']:hover {
+  background: #005a9e;
+}
+
+.sort-btn i {
+  font-size: 0.8em;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .sort-controls {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+  
+  .sort-group {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .sort-label {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 0.25rem;
+  }
+}

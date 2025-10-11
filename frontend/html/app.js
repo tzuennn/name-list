@@ -1,476 +1,323 @@
-const listEl = document.getElementById('list');
-const inputEl = document.getElementById('nameInput');
-const addBtn = document.getElementById('addBtn');
-const errorEl = document.getElementById('error');
-const liveEl = document.getElementById('live');
-const sortStatusEl = document.getElementById('sort-status');
-const pageStatusEl = document.getElementById('page-status');
-const paginationInfoEl = document.getElementById('pagination-info');
-const pageNumbersEl = document.getElementById('page-numbers');
-const pagePrevBtn = document.getElementById('page-prev');
-const pageNextBtn = document.getElementById('page-next');
+/**
+ * Main Application Controller
+ * Coordinates between services and handles application lifecycle
+ */
 
-// Sorting state and controls
-let currentData = [];
-let currentSortMode = 'name-asc'; // Default sort mode
-
-const sortButtons = {
-  'name-asc': document.getElementById('sort-name-asc'),
-  'name-desc': document.getElementById('sort-name-desc'),
-  'date-newest': document.getElementById('sort-date-newest'),
-  'date-oldest': document.getElementById('sort-date-oldest'),
-};
-
-// Pagination state
-let currentPage = 1;
-let pageSize = 10;
-let totalItems = 0;
-let totalPages = 0;
-
-function announce(msg) {
-  if (!liveEl) return;
-  liveEl.textContent = msg;
-}
-
-function announceSortChange(msg) {
-  if (!sortStatusEl) return;
-  sortStatusEl.textContent = msg;
-}
-
-function announcePageChange(msg) {
-  if (!pageStatusEl) return;
-  pageStatusEl.textContent = msg;
-}
-
-function setError(msg) {
-  errorEl.textContent = msg || '';
-  if (msg) announce(msg);
-}
-
-function timeit(label, fn) {
-  const t0 = performance.now();
-  return Promise.resolve(fn()).finally(() => {
-    const t1 = performance.now();
-    // Optional: console.debug timings
-    // console.debug(`${label}: ${(t1 - t0).toFixed(1)}ms`);
-  });
-}
-
-// Pagination utility functions
-function calculatePagination(totalItems, pageSize, currentPage) {
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const safePage = Math.max(1, Math.min(currentPage, totalPages));
-  const startIndex = (safePage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, totalItems);
-
-  return {
-    totalPages,
-    currentPage: safePage,
-    startIndex,
-    endIndex,
-    hasNext: safePage < totalPages,
-    hasPrev: safePage > 1,
-  };
-}
-
-function getPagedData(data, pageInfo) {
-  if (!Array.isArray(data)) return [];
-  return data.slice(pageInfo.startIndex, pageInfo.endIndex);
-}
-
-function updatePaginationInfo(pageInfo, totalItems) {
-  if (!paginationInfoEl) return;
-
-  if (totalItems === 0) {
-    paginationInfoEl.textContent = 'No items to display';
-    return;
+class NameListApp {
+  constructor() {
+    this.isInitialized = false;
+    this.isDestroyed = false;
   }
 
-  const start = pageInfo.startIndex + 1;
-  const end = pageInfo.endIndex;
-  paginationInfoEl.textContent = `Showing ${start}-${end} of ${totalItems} items`;
-}
-
-function generatePageNumbers(pageInfo) {
-  if (!pageNumbersEl) return;
-
-  pageNumbersEl.innerHTML = '';
-
-  const { currentPage, totalPages } = pageInfo;
-
-  // Calculate which page numbers to show
-  let startPage = Math.max(1, currentPage - 2);
-  let endPage = Math.min(totalPages, currentPage + 2);
-
-  // Adjust range to always show 5 pages when possible
-  if (endPage - startPage < 4) {
-    if (startPage === 1) {
-      endPage = Math.min(totalPages, startPage + 4);
-    } else if (endPage === totalPages) {
-      startPage = Math.max(1, endPage - 4);
+  /**
+   * Initialize the application
+   */
+  async init() {
+    if (this.isInitialized) {
+      console.warn('App already initialized');
+      return;
     }
-  }
 
-  // Add first page and ellipsis if needed
-  if (startPage > 1) {
-    addPageButton(1, 1 === currentPage);
-    if (startPage > 2) {
-      const ellipsis = document.createElement('span');
-      ellipsis.textContent = '...';
-      ellipsis.className = 'pagination-ellipsis';
-      ellipsis.style.padding = '0.5rem';
-      ellipsis.style.color = '#666';
-      pageNumbersEl.appendChild(ellipsis);
-    }
-  }
-
-  // Add page number buttons
-  for (let i = startPage; i <= endPage; i++) {
-    addPageButton(i, i === currentPage);
-  }
-
-  // Add last page and ellipsis if needed
-  if (endPage < totalPages) {
-    if (endPage < totalPages - 1) {
-      const ellipsis = document.createElement('span');
-      ellipsis.textContent = '...';
-      ellipsis.className = 'pagination-ellipsis';
-      ellipsis.style.padding = '0.5rem';
-      ellipsis.style.color = '#666';
-      pageNumbersEl.appendChild(ellipsis);
-    }
-    addPageButton(totalPages, totalPages === currentPage);
-  }
-}
-
-function addPageButton(pageNum, isCurrent) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'pagination-btn';
-  button.textContent = pageNum;
-
-  if (isCurrent) {
-    button.setAttribute('aria-current', 'page');
-    button.setAttribute('aria-label', `Page ${pageNum}, current page`);
-  } else {
-    button.setAttribute('aria-label', `Go to page ${pageNum}`);
-    button.addEventListener('click', () => goToPage(pageNum));
-  }
-
-  pageNumbersEl.appendChild(button);
-}
-
-function updatePaginationControls(pageInfo) {
-  // Update prev/next buttons
-  if (pagePrevBtn) {
-    pagePrevBtn.disabled = !pageInfo.hasPrev;
-    pagePrevBtn.setAttribute(
-      'aria-label',
-      pageInfo.hasPrev ? 'Go to previous page' : 'No previous page available'
-    );
-  }
-
-  if (pageNextBtn) {
-    pageNextBtn.disabled = !pageInfo.hasNext;
-    pageNextBtn.setAttribute(
-      'aria-label',
-      pageInfo.hasNext ? 'Go to next page' : 'No next page available'
-    );
-  }
-
-  // Generate page numbers
-  generatePageNumbers(pageInfo);
-
-  // Update pagination info
-  updatePaginationInfo(pageInfo, totalItems);
-}
-
-function goToPage(newPage) {
-  const pageInfo = calculatePagination(totalItems, pageSize, newPage);
-  currentPage = pageInfo.currentPage;
-
-  // Re-render with pagination
-  const sortedData = sortNames(currentData, currentSortMode);
-  const pagedData = getPagedData(sortedData, pageInfo);
-  renderList(pagedData);
-
-  // Update pagination controls
-  updatePaginationControls(pageInfo);
-
-  // Announce page change
-  const message = `Page ${currentPage} of ${pageInfo.totalPages}`;
-  announcePageChange(message);
-}
-
-function setPageSize(newSize) {
-  pageSize = newSize;
-  currentPage = 1; // Reset to first page when changing page size
-
-  // Update page size button states
-  document.querySelectorAll('.page-size-btn').forEach((btn) => {
-    const size = parseInt(btn.getAttribute('data-size'));
-    if (size === newSize) {
-      btn.classList.add('active');
-      btn.setAttribute('aria-label', `Show ${size} items per page, currently active`);
-    } else {
-      btn.classList.remove('active');
-      btn.setAttribute('aria-label', `Show ${size} items per page`);
-    }
-  });
-
-  // Re-render with new page size
-  const sortedData = sortNames(currentData, currentSortMode);
-  const pageInfo = calculatePagination(totalItems, pageSize, currentPage);
-  const pagedData = getPagedData(sortedData, pageInfo);
-  renderList(pagedData);
-  updatePaginationControls(pageInfo);
-
-  // Announce change
-  announcePageChange(`Page size changed to ${newSize} items per page`);
-}
-
-// Sorting utility functions
-function sortNames(items, mode) {
-  if (!Array.isArray(items)) return [];
-
-  const sorted = [...items]; // Create copy to avoid mutating original
-
-  switch (mode) {
-    case 'name-asc':
-      return sorted.sort((a, b) => {
-        if (!a.name || !b.name) return 0;
-        return a.name.localeCompare(b.name, undefined, {
-          sensitivity: 'base',
-          numeric: true,
-          caseFirst: 'lower',
-        });
-      });
-
-    case 'name-desc':
-      return sorted.sort((a, b) => {
-        if (!a.name || !b.name) return 0;
-        return b.name.localeCompare(a.name, undefined, {
-          sensitivity: 'base',
-          numeric: true,
-          caseFirst: 'lower',
-        });
-      });
-
-    case 'date-newest':
-      return sorted.sort((a, b) => {
-        const dateA = new Date(a.created_at || 0);
-        const dateB = new Date(b.created_at || 0);
-        return dateB.getTime() - dateA.getTime(); // Newest first
-      });
-
-    case 'date-oldest':
-      return sorted.sort((a, b) => {
-        const dateA = new Date(a.created_at || 0);
-        const dateB = new Date(b.created_at || 0);
-        return dateA.getTime() - dateB.getTime(); // Oldest first
-      });
-
-    default:
-      return sorted;
-  }
-}
-
-function setSortMode(newMode) {
-  if (currentSortMode === newMode) return; // No change needed
-
-  currentSortMode = newMode;
-  currentPage = 1; // Reset to first page when sorting changes
-
-  // Update button states
-  Object.keys(sortButtons).forEach((mode) => {
-    const button = sortButtons[mode];
-    if (button) {
-      const isActive = mode === newMode;
-      button.setAttribute('aria-pressed', isActive.toString());
-
-      // Update aria-label to include current state
-      const baseLabel = button.getAttribute('aria-label').replace(/, currently active/g, '');
-      const newLabel = isActive ? `${baseLabel}, currently active` : baseLabel;
-      button.setAttribute('aria-label', newLabel);
-    }
-  });
-
-  // Sort and re-render with pagination
-  const sortedData = sortNames(currentData, newMode);
-  const pageInfo = calculatePagination(totalItems, pageSize, currentPage);
-  const pagedData = getPagedData(sortedData, pageInfo);
-  renderList(pagedData);
-  updatePaginationControls(pageInfo);
-
-  // Announce the change
-  const sortMessages = {
-    'name-asc': 'Names sorted alphabetically A to Z',
-    'name-desc': 'Names sorted alphabetically Z to A',
-    'date-newest': 'Names sorted by newest entries first',
-    'date-oldest': 'Names sorted by oldest entries first',
-  };
-
-  const message = sortMessages[newMode] || 'Sort order changed';
-  announceSortChange(message);
-}
-
-async function fetchNames() {
-  setError('');
-  return timeit('fetchNames', async () => {
     try {
-      const res = await fetch('/api/names');
-      const data = await res.json();
-      currentData = data; // Store the data for sorting
-      totalItems = data.length;
+      console.log('Initializing Names List Application...');
 
-      // Calculate pagination and render
-      const sortedData = sortNames(data, currentSortMode);
-      const pageInfo = calculatePagination(totalItems, pageSize, currentPage);
-      const pagedData = getPagedData(sortedData, pageInfo);
+      // Setup accessibility features
+      accessibilityService.setupFocusManagement();
+      accessibilityService.setupSkipLinks();
 
-      renderList(pagedData);
-      updatePaginationControls(pageInfo);
-    } catch (e) {
-      setError('Failed to load names.');
+      // Setup state change listeners
+      this._setupStateListeners();
+
+      // Setup UI event handlers
+      this._setupUIEventHandlers();
+
+      // Load initial data
+      await this.loadData();
+
+      this.isInitialized = true;
+      console.log('Application initialized successfully');
+
+      // Announce initial state to screen readers
+      setTimeout(() => {
+        accessibilityService.announceCurrentState();
+      }, 500);
+    } catch (error) {
+      console.error('Failed to initialize application:', error);
+      appState.setError('Failed to initialize application. Please refresh the page.');
     }
-  });
-}
-
-function renderList(items) {
-  listEl.innerHTML = '';
-  if (items.length === 0) {
-    listEl.innerHTML = '<li style="color: #666; font-style: italic;">No names yet</li>';
-    return;
   }
 
-  items.forEach((row, index) => {
-    const li = document.createElement('li');
+  /**
+   * Setup listeners for application state changes
+   */
+  _setupStateListeners() {
+    // Data changes - re-render the list
+    appState.on('dataChange', (data) => {
+      const pageData = appState.currentPageData;
+      uiService.renderList(pageData);
+      uiService.updatePaginationControls(appState.paginationInfo);
 
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = `${index + 1}. ${row.name}`;
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'delete-btn';
-    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
-    deleteBtn.onclick = () => removeName(row.id);
-    deleteBtn.setAttribute('aria-label', `Delete ${row.name}`);
-    deleteBtn.title = `Delete ${row.name}`;
-
-    li.appendChild(nameSpan);
-    li.appendChild(deleteBtn);
-    listEl.appendChild(li);
-  });
-}
-
-async function addName() {
-  const name = (inputEl.value || '').trim();
-  if (!name) {
-    setError('Name cannot be empty.');
-    inputEl.focus();
-    return;
-  }
-  setError('');
-  try {
-    const res = await fetch('/api/names', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || 'Failed to add name.');
-      return;
-    }
-    inputEl.value = '';
-    announce('Name added.');
-    fetchNames();
-  } catch (e) {
-    setError('Failed to add name.');
-  }
-}
-
-async function removeName(id) {
-  setError('');
-  try {
-    const res = await fetch(`/api/names/${id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      setError('Failed to delete.');
-      return;
-    }
-    announce('Name deleted.');
-    fetchNames();
-  } catch (e) {
-    setError('Failed to delete.');
-  }
-}
-
-inputEl.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') addName();
-});
-
-addBtn.onclick = addName;
-
-// Add sorting button event listeners
-Object.keys(sortButtons).forEach((mode) => {
-  const button = sortButtons[mode];
-  if (button) {
-    button.addEventListener('click', () => setSortMode(mode));
-
-    // Add keyboard support for Enter and Space
-    button.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        setSortMode(mode);
+      // Announce data changes
+      if (data.data.length === 0) {
+        accessibilityService.announceDataChange('loaded', { count: 0 });
       }
     });
-  }
-});
 
-// Add pagination event listeners
-if (pagePrevBtn) {
-  pagePrevBtn.addEventListener('click', () => {
-    if (currentPage > 1) {
-      goToPage(currentPage - 1);
+    // Sort changes - update UI and re-render
+    appState.on('sortChange', (data) => {
+      uiService.updateSortButtons(data.sortMode);
+      const pageData = appState.currentPageData;
+      uiService.renderList(pageData);
+      uiService.updatePaginationControls(appState.paginationInfo);
+
+      // Announce sort change
+      accessibilityService.announceSortChange(data.sortMode);
+    });
+
+    // Page changes - re-render current page
+    appState.on('pageChange', (data) => {
+      const pageData = appState.currentPageData;
+      uiService.renderList(pageData);
+      uiService.updatePaginationControls(appState.paginationInfo);
+
+      if (data.pageSizeChanged) {
+        uiService.updatePageSizeButtons(data.pageSize);
+      }
+
+      // Announce page change
+      accessibilityService.announcePageChange({
+        currentPage: data.currentPage,
+        totalPages: Math.ceil(data.totalItems / data.pageSize),
+        pageSize: data.pageSize,
+        pageSizeChanged: data.pageSizeChanged,
+      });
+    });
+
+    // Error changes - show/hide error messages
+    appState.on('errorChange', (data) => {
+      uiService.showError(data.error);
+
+      if (data.error) {
+        accessibilityService.announceDataChange('error', { error: data.error });
+      }
+    });
+
+    // Loading changes - could show/hide loading indicator
+    appState.on('loadingChange', (data) => {
+      // Future: show loading spinner
+      accessibilityService.announceLoading(data.isLoading);
+    });
+  }
+
+  /**
+   * Setup UI event handlers
+   */
+  _setupUIEventHandlers() {
+    uiService.setupEventListeners({
+      onAdd: () => this.handleAddName(),
+      onSort: (mode) => this.handleSortChange(mode),
+      onPageChange: (direction) => this.handlePageChange(direction),
+      onPageSizeChange: (size) => this.handlePageSizeChange(size),
+      onDelete: (id) => this.handleDeleteName(id),
+    });
+  }
+
+  /**
+   * Load data from the API
+   */
+  async loadData() {
+    appState.setLoading(true);
+    appState.clearError();
+
+    try {
+      const data = await apiService.fetchNames();
+      appState.setData(data);
+
+      // Announce successful load
+      accessibilityService.announceDataChange('loaded', { count: data.length });
+    } catch (error) {
+      console.error('Failed to load data:', error);
+      appState.setError(error.message);
+    } finally {
+      appState.setLoading(false);
+    }
+  }
+
+  /**
+   * Handle adding a new name
+   */
+  async handleAddName() {
+    const name = uiService.getInputValue();
+
+    if (!name) {
+      const error = 'Name cannot be empty.';
+      appState.setError(error);
+      accessibilityService.announceValidationError('Name input', error);
+      uiService.focusInput();
+      return;
+    }
+
+    appState.setLoading(true);
+    appState.clearError();
+
+    try {
+      await apiService.addName(name);
+      uiService.clearInput();
+
+      // Reload data to get the updated list
+      await this.loadData();
+
+      // Announce success
+      accessibilityService.announceDataChange('added', { name });
+    } catch (error) {
+      console.error('Failed to add name:', error);
+      appState.setError(error.message);
+      uiService.focusInput();
+    } finally {
+      appState.setLoading(false);
+    }
+  }
+
+  /**
+   * Handle deleting a name
+   * @param {string} id - ID of the name to delete
+   */
+  async handleDeleteName(id) {
+    appState.setLoading(true);
+    appState.clearError();
+
+    try {
+      await apiService.deleteName(id);
+
+      // Reload data to get the updated list
+      await this.loadData();
+
+      // Announce success
+      accessibilityService.announceDataChange('deleted');
+    } catch (error) {
+      console.error('Failed to delete name:', error);
+      appState.setError(error.message);
+    } finally {
+      appState.setLoading(false);
+    }
+  }
+
+  /**
+   * Handle sort mode changes
+   * @param {string} mode - New sort mode
+   */
+  handleSortChange(mode) {
+    appState.setSortMode(mode);
+  }
+
+  /**
+   * Handle page navigation
+   * @param {string|number} direction - 'prev', 'next', or page number
+   */
+  handlePageChange(direction) {
+    const currentPage = appState.currentPage;
+    const pageInfo = appState.paginationInfo;
+
+    let newPage;
+
+    if (direction === 'prev') {
+      newPage = Math.max(1, currentPage - 1);
+    } else if (direction === 'next') {
+      newPage = Math.min(pageInfo.totalPages, currentPage + 1);
+    } else if (typeof direction === 'number') {
+      newPage = direction;
+    } else {
+      console.warn('Invalid page change direction:', direction);
+      return;
+    }
+
+    appState.setCurrentPage(newPage);
+  }
+
+  /**
+   * Handle page size changes
+   * @param {number} size - New page size
+   */
+  handlePageSizeChange(size) {
+    appState.setPageSize(size);
+  }
+
+  /**
+   * Handle browser back/forward navigation
+   */
+  _setupHistoryHandling() {
+    // Future enhancement: manage browser history for pagination/sorting
+    window.addEventListener('popstate', (event) => {
+      // Handle browser back/forward
+      console.log('History navigation:', event.state);
+    });
+  }
+
+  /**
+   * Cleanup when the app is destroyed
+   */
+  destroy() {
+    if (this.isDestroyed) return;
+
+    // Clear all state listeners
+    appState.reset();
+
+    // Clear all announcements
+    accessibilityService.clearAnnouncements();
+
+    this.isDestroyed = true;
+    console.log('Application destroyed');
+  }
+
+  /**
+   * Get current application state for debugging
+   */
+  getDebugInfo() {
+    return {
+      isInitialized: this.isInitialized,
+      isDestroyed: this.isDestroyed,
+      state: appState.getState(),
+      uiElements: Object.keys(uiService.elements).filter((key) => uiService.elements[key] !== null),
+    };
+  }
+}
+
+// Initialize the application when DOM is ready
+let app = null;
+
+function initializeApp() {
+  if (app) {
+    console.warn('App already exists');
+    return;
+  }
+
+  app = new NameListApp();
+  app.init().catch((error) => {
+    console.error('Critical application error:', error);
+
+    // Show fallback error message
+    const errorEl = document.getElementById('error');
+    if (errorEl) {
+      errorEl.textContent = 'Application failed to start. Please refresh the page.';
     }
   });
 }
 
-if (pageNextBtn) {
-  pageNextBtn.addEventListener('click', () => {
-    const pageInfo = calculatePagination(totalItems, pageSize, currentPage);
-    if (currentPage < pageInfo.totalPages) {
-      goToPage(currentPage + 1);
-    }
-  });
+// Wait for DOM to be ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+  // DOM is already ready
+  initializeApp();
 }
 
-// Add page size control event listeners
-document.querySelectorAll('.page-size-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const newSize = parseInt(btn.getAttribute('data-size'));
-    if (newSize && newSize !== pageSize) {
-      setPageSize(newSize);
-    }
-  });
-});
-
-// Add keyboard navigation for pagination
-document.addEventListener('keydown', (e) => {
-  // Only handle if focus is not in an input field
-  if (document.activeElement.tagName === 'INPUT') return;
-
-  if (e.key === 'ArrowLeft' && e.ctrlKey) {
-    e.preventDefault();
-    if (currentPage > 1) {
-      goToPage(currentPage - 1);
-    }
-  } else if (e.key === 'ArrowRight' && e.ctrlKey) {
-    e.preventDefault();
-    const pageInfo = calculatePagination(totalItems, pageSize, currentPage);
-    if (currentPage < pageInfo.totalPages) {
-      goToPage(currentPage + 1);
-    }
+// Global error handling
+window.addEventListener('error', (event) => {
+  console.error('Global error:', event.error);
+  if (app && !app.isDestroyed) {
+    appState.setError('An unexpected error occurred. Please refresh the page.');
   }
 });
 
-fetchNames();
+// Export for debugging
+window.debugApp = () => (app ? app.getDebugInfo() : 'App not initialized');

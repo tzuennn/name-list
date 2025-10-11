@@ -1,0 +1,50 @@
+/* Name Input Form Component Styles */
+
+.name-input-form {
+  margin-bottom: 1rem;
+}
+
+.name-input-form .row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.name-input-form input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.name-input-form input:focus {
+  outline: none;
+  border-color: #007acc;
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+}
+
+.name-input-form button {
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+/* Error display for the form */
+.name-input-form .error {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .name-input-form .row {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .name-input-form input {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .name-input-form button {
+    width: 100%;
+  }
+}
