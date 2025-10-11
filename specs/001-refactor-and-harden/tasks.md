@@ -80,9 +80,9 @@ description: "Task list for implementing 'Refactor & Harden Name List App'"
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T030 [P] [US2] Contract: DELETE /api/names/{id} returns 200; item gone from GET — `backend/tests/contract/test_delete_api.py`
-- [ ] T031 [P] [US2] Integration: add->delete flow leaves consistent state after reload — `backend/tests/integration/test_remove_flow.py`
-- [ ] T032 [US2] A11y: verify delete buttons labeled, keyboard accessible, and focus remains sensible — `frontend/tests/a11y/US2-notes.md`
+- [x] T030 [P] [US2] Contract: DELETE /api/names/{id} returns 200; item gone from GET — `backend/tests/contract/test_delete_api.py`
+- [x] T031 [P] [US2] Integration: add->delete flow leaves consistent state after reload — `backend/tests/integration/test_remove_flow.py`
+- [x] T032 [US2] A11y: verify delete buttons labeled, keyboard accessible, and focus remains sensible — `frontend/tests/a11y/US2-notes.md`
 
 ### Implementation for User Story 2
 
