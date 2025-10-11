@@ -1,13 +1,13 @@
 [tool.black]
 line-length = 100
 target-version = ["py312"]
-include = '\.pyi?$'
+include = '\\.pyi?$'
 exclude = [
-  "\.eggs",
-  "\.git",
-  "\.mypy_cache",
-  "\.pytest_cache",
-  "\.venv",
+  "\\.eggs",
+  "\\.git",
+  "\\.mypy_cache",
+  "\\.pytest_cache",
+  "\\.venv",
   "node_modules",
 ]
 

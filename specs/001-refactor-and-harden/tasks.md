@@ -80,9 +80,9 @@ description: "Task list for implementing 'Refactor & Harden Name List App'"
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T030 [P] [US2] Contract: DELETE /api/names/{id} returns 200; item gone from GET — `backend/tests/contract/test_delete_api.py`
-- [ ] T031 [P] [US2] Integration: add->delete flow leaves consistent state after reload — `backend/tests/integration/test_remove_flow.py`
-- [ ] T032 [US2] A11y: verify delete buttons labeled, keyboard accessible, and focus remains sensible — `frontend/tests/a11y/US2-notes.md`
+- [x] T030 [P] [US2] Contract: DELETE /api/names/{id} returns 200; item gone from GET — `backend/tests/contract/test_delete_api.py`
+- [x] T031 [P] [US2] Integration: add->delete flow leaves consistent state after reload — `backend/tests/integration/test_remove_flow.py`
+- [x] T032 [US2] A11y: verify delete buttons labeled, keyboard accessible, and focus remains sensible — `frontend/tests/a11y/US2-notes.md`
 
 ### Implementation for User Story 2
 
@@ -101,16 +101,16 @@ description: "Task list for implementing 'Refactor & Harden Name List App'"
 
 ### Tests for User Story 3 (REQUIRED) ⚠️
 
-- [ ] T040 [P] [US3] Unit: sorting utils (A→Z, Z→A, date newest/oldest) with Unicode cases — `frontend/tests/unit/test_sorting.js`
-- [ ] T041 [P] [US3] Integration: UI toggles switch order; pagination applies correctly across viewports — `frontend/tests/integration/test_sort_and_paginate.md`
-- [ ] T042 [US3] A11y: sorting controls and pagination are keyboard operable with clear focus and labels — `frontend/tests/a11y/US3-notes.md`
+- [x] T040 [P] [US3] Unit: sorting utils (A→Z, Z→A, date newest/oldest) with Unicode cases — `frontend/tests/unit/test_sorting.js`
+- [x] T041 [P] [US3] Integration: UI toggles switch order; pagination applies correctly across viewports — `frontend/tests/integration/test_sort_and_paginate.md`
+- [x] T042 [US3] A11y: sorting controls and pagination are keyboard operable with clear focus and labels — `frontend/tests/a11y/US3-notes.md`
 
 ### Implementation for User Story 3
 
-- [ ] T044 [US3] Frontend: add sorting controls UI (A→Z/Z→A, Newest/Oldest) — `frontend/html/index.html`
-- [ ] T045 [US3] Frontend: implement sorting function using locale-aware compare and `created_at` — `frontend/html/app.js`
-- [ ] T046 [US3] Frontend: implement pagination controls (default 20/page) — `frontend/html/index.html`, `frontend/html/app.js`
-- [ ] T047 [US3] Frontend: adaptive page size to prevent vertical overflow (adjust page size on load/resize) — `frontend/html/app.js`
+- [x] T044 [US3] Frontend: add sorting controls UI (A→Z/Z→A, Newest/Oldest) — `frontend/html/index.html`
+- [x] T045 [US3] Frontend: implement sorting function using locale-aware compare and `created_at` — `frontend/html/app.js`
+- [x] T046 [US3] Frontend: implement pagination controls (default 20/page) — `frontend/html/index.html`, `frontend/html/app.js`
+- [x] T047 [US3] Frontend: adaptive page size to prevent vertical overflow (adjust page size on load/resize) — `frontend/html/app.js`
 - [ ] T048 [P] [US3] Backend (optional, future-proof): accept `by=name|created_at` and `order=asc|desc` query params in GET (non-breaking) with validation — `backend/app.py`
 - [ ] T049 [P] [US3] Contract tests for optional server sorting params — `backend/tests/contract/test_server_sorting.py`
 
