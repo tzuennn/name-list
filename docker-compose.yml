@@ -19,6 +19,7 @@ services:
   backend:
     build:
       context: ./backend
+    image: namelist-backend:latest
     container_name: backend
     env_file: .env
     depends_on:
@@ -32,6 +33,7 @@ services:
   frontend:
     build:
       context: ./frontend
+    image: namelist-frontend:latest
     container_name: frontend
     depends_on:
       - backend
