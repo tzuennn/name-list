@@ -18,7 +18,7 @@ const sortButtons = {
   'name-asc': document.getElementById('sort-name-asc'),
   'name-desc': document.getElementById('sort-name-desc'),
   'date-newest': document.getElementById('sort-date-newest'),
-  'date-oldest': document.getElementById('sort-date-oldest')
+  'date-oldest': document.getElementById('sort-date-oldest'),
 };
 
 // Pagination state
@@ -62,14 +62,14 @@ function calculatePagination(totalItems, pageSize, currentPage) {
   const safePage = Math.max(1, Math.min(currentPage, totalPages));
   const startIndex = (safePage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalItems);
-  
+
   return {
     totalPages,
     currentPage: safePage,
     startIndex,
     endIndex,
     hasNext: safePage < totalPages,
-    hasPrev: safePage > 1
+    hasPrev: safePage > 1,
   };
 }
 
@@ -80,12 +80,12 @@ function getPagedData(data, pageInfo) {
 
 function updatePaginationInfo(pageInfo, totalItems) {
   if (!paginationInfoEl) return;
-  
+
   if (totalItems === 0) {
     paginationInfoEl.textContent = 'No items to display';
     return;
   }
-  
+
   const start = pageInfo.startIndex + 1;
   const end = pageInfo.endIndex;
   paginationInfoEl.textContent = `Showing ${start}-${end} of ${totalItems} items`;
@@ -93,15 +93,15 @@ function updatePaginationInfo(pageInfo, totalItems) {
 
 function generatePageNumbers(pageInfo) {
   if (!pageNumbersEl) return;
-  
+
   pageNumbersEl.innerHTML = '';
-  
+
   const { currentPage, totalPages } = pageInfo;
-  
+
   // Calculate which page numbers to show
   let startPage = Math.max(1, currentPage - 2);
   let endPage = Math.min(totalPages, currentPage + 2);
-  
+
   // Adjust range to always show 5 pages when possible
   if (endPage - startPage < 4) {
     if (startPage === 1) {
@@ -110,7 +110,7 @@ function generatePageNumbers(pageInfo) {
       startPage = Math.max(1, endPage - 4);
     }
   }
-  
+
   // Add first page and ellipsis if needed
   if (startPage > 1) {
     addPageButton(1, 1 === currentPage);
@@ -123,12 +123,12 @@ function generatePageNumbers(pageInfo) {
       pageNumbersEl.appendChild(ellipsis);
     }
   }
-  
+
   // Add page number buttons
   for (let i = startPage; i <= endPage; i++) {
     addPageButton(i, i === currentPage);
   }
-  
+
   // Add last page and ellipsis if needed
   if (endPage < totalPages) {
     if (endPage < totalPages - 1) {
@@ -148,7 +148,7 @@ function addPageButton(pageNum, isCurrent) {
   button.type = 'button';
   button.className = 'pagination-btn';
   button.textContent = pageNum;
-  
+
   if (isCurrent) {
     button.setAttribute('aria-current', 'page');
     button.setAttribute('aria-label', `Page ${pageNum}, current page`);
@@ -156,7 +156,7 @@ function addPageButton(pageNum, isCurrent) {
     button.setAttribute('aria-label', `Go to page ${pageNum}`);
     button.addEventListener('click', () => goToPage(pageNum));
   }
-  
+
   pageNumbersEl.appendChild(button);
 }
 
@@ -164,19 +164,23 @@ function updatePaginationControls(pageInfo) {
   // Update prev/next buttons
   if (pagePrevBtn) {
     pagePrevBtn.disabled = !pageInfo.hasPrev;
-    pagePrevBtn.setAttribute('aria-label', 
-      pageInfo.hasPrev ? 'Go to previous page' : 'No previous page available');
+    pagePrevBtn.setAttribute(
+      'aria-label',
+      pageInfo.hasPrev ? 'Go to previous page' : 'No previous page available'
+    );
   }
-  
+
   if (pageNextBtn) {
     pageNextBtn.disabled = !pageInfo.hasNext;
-    pageNextBtn.setAttribute('aria-label', 
-      pageInfo.hasNext ? 'Go to next page' : 'No next page available');
+    pageNextBtn.setAttribute(
+      'aria-label',
+      pageInfo.hasNext ? 'Go to next page' : 'No next page available'
+    );
   }
-  
+
   // Generate page numbers
   generatePageNumbers(pageInfo);
-  
+
   // Update pagination info
   updatePaginationInfo(pageInfo, totalItems);
 }
@@ -184,15 +188,15 @@ function updatePaginationControls(pageInfo) {
 function goToPage(newPage) {
   const pageInfo = calculatePagination(totalItems, pageSize, newPage);
   currentPage = pageInfo.currentPage;
-  
+
   // Re-render with pagination
   const sortedData = sortNames(currentData, currentSortMode);
   const pagedData = getPagedData(sortedData, pageInfo);
   renderList(pagedData);
-  
+
   // Update pagination controls
   updatePaginationControls(pageInfo);
-  
+
   // Announce page change
   const message = `Page ${currentPage} of ${pageInfo.totalPages}`;
   announcePageChange(message);
@@ -201,9 +205,9 @@ function goToPage(newPage) {
 function setPageSize(newSize) {
   pageSize = newSize;
   currentPage = 1; // Reset to first page when changing page size
-  
+
   // Update page size button states
-  document.querySelectorAll('.page-size-btn').forEach(btn => {
+  document.querySelectorAll('.page-size-btn').forEach((btn) => {
     const size = parseInt(btn.getAttribute('data-size'));
     if (size === newSize) {
       btn.classList.add('active');
@@ -213,14 +217,14 @@ function setPageSize(newSize) {
       btn.setAttribute('aria-label', `Show ${size} items per page`);
     }
   });
-  
+
   // Re-render with new page size
   const sortedData = sortNames(currentData, currentSortMode);
   const pageInfo = calculatePagination(totalItems, pageSize, currentPage);
   const pagedData = getPagedData(sortedData, pageInfo);
   renderList(pagedData);
   updatePaginationControls(pageInfo);
-  
+
   // Announce change
   announcePageChange(`Page size changed to ${newSize} items per page`);
 }
@@ -228,44 +232,44 @@ function setPageSize(newSize) {
 // Sorting utility functions
 function sortNames(items, mode) {
   if (!Array.isArray(items)) return [];
-  
+
   const sorted = [...items]; // Create copy to avoid mutating original
-  
+
   switch (mode) {
     case 'name-asc':
       return sorted.sort((a, b) => {
         if (!a.name || !b.name) return 0;
-        return a.name.localeCompare(b.name, undefined, { 
+        return a.name.localeCompare(b.name, undefined, {
           sensitivity: 'base',
           numeric: true,
-          caseFirst: 'lower'
+          caseFirst: 'lower',
         });
       });
-      
+
     case 'name-desc':
       return sorted.sort((a, b) => {
         if (!a.name || !b.name) return 0;
-        return b.name.localeCompare(a.name, undefined, { 
+        return b.name.localeCompare(a.name, undefined, {
           sensitivity: 'base',
           numeric: true,
-          caseFirst: 'lower'
+          caseFirst: 'lower',
         });
       });
-      
+
     case 'date-newest':
       return sorted.sort((a, b) => {
         const dateA = new Date(a.created_at || 0);
         const dateB = new Date(b.created_at || 0);
         return dateB.getTime() - dateA.getTime(); // Newest first
       });
-      
+
     case 'date-oldest':
       return sorted.sort((a, b) => {
         const dateA = new Date(a.created_at || 0);
         const dateB = new Date(b.created_at || 0);
         return dateA.getTime() - dateB.getTime(); // Oldest first
       });
-      
+
     default:
       return sorted;
   }
@@ -273,39 +277,39 @@ function sortNames(items, mode) {
 
 function setSortMode(newMode) {
   if (currentSortMode === newMode) return; // No change needed
-  
+
   currentSortMode = newMode;
   currentPage = 1; // Reset to first page when sorting changes
-  
+
   // Update button states
-  Object.keys(sortButtons).forEach(mode => {
+  Object.keys(sortButtons).forEach((mode) => {
     const button = sortButtons[mode];
     if (button) {
       const isActive = mode === newMode;
       button.setAttribute('aria-pressed', isActive.toString());
-      
+
       // Update aria-label to include current state
       const baseLabel = button.getAttribute('aria-label').replace(/, currently active/g, '');
       const newLabel = isActive ? `${baseLabel}, currently active` : baseLabel;
       button.setAttribute('aria-label', newLabel);
     }
   });
-  
+
   // Sort and re-render with pagination
   const sortedData = sortNames(currentData, newMode);
   const pageInfo = calculatePagination(totalItems, pageSize, currentPage);
   const pagedData = getPagedData(sortedData, pageInfo);
   renderList(pagedData);
   updatePaginationControls(pageInfo);
-  
+
   // Announce the change
   const sortMessages = {
     'name-asc': 'Names sorted alphabetically A to Z',
-    'name-desc': 'Names sorted alphabetically Z to A', 
+    'name-desc': 'Names sorted alphabetically Z to A',
     'date-newest': 'Names sorted by newest entries first',
-    'date-oldest': 'Names sorted by oldest entries first'
+    'date-oldest': 'Names sorted by oldest entries first',
   };
-  
+
   const message = sortMessages[newMode] || 'Sort order changed';
   announceSortChange(message);
 }
@@ -318,12 +322,12 @@ async function fetchNames() {
       const data = await res.json();
       currentData = data; // Store the data for sorting
       totalItems = data.length;
-      
+
       // Calculate pagination and render
       const sortedData = sortNames(data, currentSortMode);
       const pageInfo = calculatePagination(totalItems, pageSize, currentPage);
       const pagedData = getPagedData(sortedData, pageInfo);
-      
+
       renderList(pagedData);
       updatePaginationControls(pageInfo);
     } catch (e) {
@@ -407,11 +411,11 @@ inputEl.addEventListener('keypress', (e) => {
 addBtn.onclick = addName;
 
 // Add sorting button event listeners
-Object.keys(sortButtons).forEach(mode => {
+Object.keys(sortButtons).forEach((mode) => {
   const button = sortButtons[mode];
   if (button) {
     button.addEventListener('click', () => setSortMode(mode));
-    
+
     // Add keyboard support for Enter and Space
     button.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -441,7 +445,7 @@ if (pageNextBtn) {
 }
 
 // Add page size control event listeners
-document.querySelectorAll('.page-size-btn').forEach(btn => {
+document.querySelectorAll('.page-size-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     const newSize = parseInt(btn.getAttribute('data-size'));
     if (newSize && newSize !== pageSize) {
@@ -454,7 +458,7 @@ document.querySelectorAll('.page-size-btn').forEach(btn => {
 document.addEventListener('keydown', (e) => {
   // Only handle if focus is not in an input field
   if (document.activeElement.tagName === 'INPUT') return;
-  
+
   if (e.key === 'ArrowLeft' && e.ctrlKey) {
     e.preventDefault();
     if (currentPage > 1) {

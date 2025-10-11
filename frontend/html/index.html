@@ -126,12 +126,12 @@
         outline: 2px solid #007acc;
         outline-offset: 2px;
       }
-      .sort-btn[aria-pressed="true"] {
+      .sort-btn[aria-pressed='true'] {
         background: #007acc;
         color: white;
         border-color: #007acc;
       }
-      .sort-btn[aria-pressed="true"]:hover {
+      .sort-btn[aria-pressed='true']:hover {
         background: #005a9e;
       }
       .sort-label {
@@ -193,13 +193,13 @@
         cursor: not-allowed;
         opacity: 0.6;
       }
-      .pagination-btn[aria-current="page"] {
+      .pagination-btn[aria-current='page'] {
         background: #007acc;
         color: white;
         border-color: #007acc;
         font-weight: 500;
       }
-      .pagination-btn[aria-current="page"]:hover {
+      .pagination-btn[aria-current='page']:hover {
         background: #005a9e;
       }
       .pagination-info {
@@ -279,91 +279,125 @@
     <div id="sort-status" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
     <h2>List</h2>
-    
+
     <div class="sort-controls" role="region" aria-label="Sorting options">
       <div class="sort-group">
         <span class="sort-label">Name:</span>
-        <button 
-          type="button" 
-          class="sort-btn" 
+        <button
+          type="button"
+          class="sort-btn"
           id="sort-name-asc"
           aria-pressed="true"
-          aria-label="Sort names alphabetically A to Z, currently active">
+          aria-label="Sort names alphabetically A to Z, currently active"
+        >
           A→Z
         </button>
-        <button 
-          type="button" 
-          class="sort-btn" 
+        <button
+          type="button"
+          class="sort-btn"
           id="sort-name-desc"
           aria-pressed="false"
-          aria-label="Sort names alphabetically Z to A">
+          aria-label="Sort names alphabetically Z to A"
+        >
           Z→A
         </button>
       </div>
-      
+
       <div class="sort-group">
         <span class="sort-label">Date:</span>
-        <button 
-          type="button" 
-          class="sort-btn" 
+        <button
+          type="button"
+          class="sort-btn"
           id="sort-date-newest"
           aria-pressed="false"
-          aria-label="Sort by newest entries first">
+          aria-label="Sort by newest entries first"
+        >
           <i class="fas fa-clock" aria-hidden="true"></i> Newest
         </button>
-        <button 
-          type="button" 
-          class="sort-btn" 
+        <button
+          type="button"
+          class="sort-btn"
           id="sort-date-oldest"
           aria-pressed="false"
-          aria-label="Sort by oldest entries first">
+          aria-label="Sort by oldest entries first"
+        >
           <i class="fas fa-history" aria-hidden="true"></i> Oldest
         </button>
       </div>
     </div>
-    
+
     <ul id="list" aria-label="Names list"></ul>
 
     <div class="pagination-controls">
       <div class="page-size-controls">
         <span class="page-size-label">Items per page:</span>
-        <button type="button" class="page-size-btn active" data-size="10" aria-label="Show 10 items per page">10</button>
-        <button type="button" class="page-size-btn" data-size="25" aria-label="Show 25 items per page">25</button>
-        <button type="button" class="page-size-btn" data-size="50" aria-label="Show 50 items per page">50</button>
-        <button type="button" class="page-size-btn" data-size="100" aria-label="Show 100 items per page">100</button>
+        <button
+          type="button"
+          class="page-size-btn active"
+          data-size="10"
+          aria-label="Show 10 items per page"
+        >
+          10
+        </button>
+        <button
+          type="button"
+          class="page-size-btn"
+          data-size="25"
+          aria-label="Show 25 items per page"
+        >
+          25
+        </button>
+        <button
+          type="button"
+          class="page-size-btn"
+          data-size="50"
+          aria-label="Show 50 items per page"
+        >
+          50
+        </button>
+        <button
+          type="button"
+          class="page-size-btn"
+          data-size="100"
+          aria-label="Show 100 items per page"
+        >
+          100
+        </button>
       </div>
-      
+
       <nav class="pagination-nav" aria-label="Pagination Navigation">
-        <button 
-          type="button" 
-          class="pagination-btn" 
+        <button
+          type="button"
+          class="pagination-btn"
           id="page-prev"
           aria-label="Go to previous page"
-          disabled>
+          disabled
+        >
           <i class="fas fa-chevron-left" aria-hidden="true"></i>
           <span class="sr-only">Previous</span>
         </button>
-        
+
         <div id="page-numbers" role="group" aria-label="Page numbers">
           <!-- Page numbers will be dynamically generated -->
         </div>
-        
-        <button 
-          type="button" 
-          class="pagination-btn" 
+
+        <button
+          type="button"
+          class="pagination-btn"
           id="page-next"
           aria-label="Go to next page"
-          disabled>
+          disabled
+        >
           <i class="fas fa-chevron-right" aria-hidden="true"></i>
           <span class="sr-only">Next</span>
         </button>
       </nav>
-      
+
       <div id="pagination-info" class="pagination-info" aria-live="polite">
         <!-- Pagination info will be dynamically updated -->
       </div>
     </div>
-    
+
     <div id="page-status" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
     <script src="./app.js"></script>
