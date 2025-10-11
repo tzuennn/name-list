@@ -32,18 +32,18 @@ class ApiService {
     return this.timeit('fetchNames', async () => {
       try {
         const response = await fetch(`${this.baseUrl}/names`);
-        
+
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
-        
+
         // Validate that we received an array
         if (!Array.isArray(data)) {
           throw new Error('Invalid response format: expected array');
         }
-        
+
         return data;
       } catch (error) {
         console.error('Failed to fetch names:', error);
@@ -65,7 +65,7 @@ class ApiService {
       if (!trimmedName) {
         throw new Error('Name cannot be empty');
       }
-      
+
       if (trimmedName.length > 50) {
         throw new Error('Name cannot exceed 50 characters');
       }
@@ -95,13 +95,12 @@ class ApiService {
         return data;
       } catch (error) {
         console.error('Failed to add name:', error);
-        
+
         // Re-throw API errors as-is, network errors with generic message
-        if (error.message.includes('Failed to add name') || 
-            error.message.includes('Name cannot')) {
+        if (error.message.includes('Failed to add name') || error.message.includes('Name cannot')) {
           throw error;
         }
-        
+
         throw new Error('Unable to add name. Please check your connection and try again.');
       }
     });
@@ -128,7 +127,7 @@ class ApiService {
           if (response.status === 404) {
             throw new Error('Name not found or already deleted');
           }
-          
+
           let errorMessage = 'Failed to delete name';
           try {
             const errorData = await response.json();
@@ -143,13 +142,15 @@ class ApiService {
         return;
       } catch (error) {
         console.error('Failed to delete name:', error);
-        
+
         // Re-throw known errors as-is, network errors with generic message
-        if (error.message.includes('Failed to delete') || 
-            error.message.includes('Name not found')) {
+        if (
+          error.message.includes('Failed to delete') ||
+          error.message.includes('Name not found')
+        ) {
           throw error;
         }
-        
+
         throw new Error('Unable to delete name. Please check your connection and try again.');
       }
     });

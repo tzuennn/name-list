@@ -5,68 +5,16 @@
  * This script runs the same tests as the browser version but in Node.js environment
  */
 
-// Import the sorting function logic (copied from app.js)
-function sortNames(items, mode) {
-  if (!Array.isArray(items)) return [];
+// Import the sorting functions from the modular architecture
+const fs = require('fs');
+const path = require('path');
 
-  const sorted = [...items]; // Create copy to avoid mutating original
+// Load the sorting module
+const sortingModulePath = path.join(__dirname, '../../html/js/sorting.js');
+const sortingCode = fs.readFileSync(sortingModulePath, 'utf8');
 
-  switch (mode) {
-    case 'name-asc':
-      return sorted.sort((a, b) => {
-        if (!a.name || !b.name) return 0;
-        return a.name.localeCompare(b.name, undefined, {
-          sensitivity: 'base',
-          numeric: true,
-          caseFirst: 'lower',
-        });
-      });
-
-    case 'name-desc':
-      return sorted.sort((a, b) => {
-        if (!a.name || !b.name) return 0;
-        return b.name.localeCompare(a.name, undefined, {
-          sensitivity: 'base',
-          numeric: true,
-          caseFirst: 'lower',
-        });
-      });
-
-    case 'date-newest':
-      return sorted.sort((a, b) => {
-        const dateA = new Date(a.created_at || 0);
-        const dateB = new Date(b.created_at || 0);
-        return dateB.getTime() - dateA.getTime(); // Newest first
-      });
-
-    case 'date-oldest':
-      return sorted.sort((a, b) => {
-        const dateA = new Date(a.created_at || 0);
-        const dateB = new Date(b.created_at || 0);
-        return dateA.getTime() - dateB.getTime(); // Oldest first
-      });
-
-    default:
-      return sorted;
-  }
-}
-
-// Helper functions to match the test expectations
-function sortByNameAZ(items) {
-  return sortNames(items, 'name-asc');
-}
-
-function sortByNameZA(items) {
-  return sortNames(items, 'name-desc');
-}
-
-function sortByDateNewest(items) {
-  return sortNames(items, 'date-newest');
-}
-
-function sortByDateOldest(items) {
-  return sortNames(items, 'date-oldest');
-}
+// Execute the sorting module in this context to make functions available
+eval(sortingCode);
 
 // Test framework
 let testCount = 0;
