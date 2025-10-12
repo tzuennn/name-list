@@ -68,13 +68,7 @@ def add_name():
 
 @app.delete("/api/names/<int:name_id>")
 def delete_name(name_id: int):
-    # First check if the name exists
-    existing = query("SELECT id FROM names WHERE id = %s;", (name_id,), fetch=True)
-    
-    if not existing:
-        return jsonify({"error": "Name not found."}), 404
-    
-    # Delete the name
+    # Delete the name (idempotent - returns 200 even if ID doesn't exist)
     query("DELETE FROM names WHERE id = %s;", (name_id,), fetch=False)
     return jsonify({"message": "Deleted"}), 200
 
