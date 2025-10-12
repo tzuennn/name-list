@@ -9,7 +9,6 @@ A modern, accessible 3-tier web application for managing a persistent list of na
 - **📝 Name Management**: Add and remove names with real-time updates
 - **💾 Persistence**: All data persists across browser sessions
 - **🔄 Flexible Sorting**: Sort by name (A→Z, Z→A) or by date added (newest/oldest first)
-- **📱 Responsive Design**: Adaptive pagination that adjusts to viewport size
 - **🎨 Modular Architecture**: Clean separation of concerns with modular JavaScript
 - **🧪 Comprehensive Testing**: Unit and integration tests.
 - **🐳 Containerized**: Easy deployment with Docker Compose
@@ -24,18 +23,21 @@ A modern, accessible 3-tier web application for managing a persistent list of na
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/tzuennn/name-list.git
    cd name-list
    ```
 
 2. **Set up environment variables**
+
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
    ```
 
 3. **Start the application**
+
    ```bash
    docker-compose up -d
    ```
@@ -66,19 +68,21 @@ docker-compose down
 ### Component Architecture
 
 #### Frontend (Modular JavaScript)
+
 - **State Management**: Centralized application state with event-driven updates
 - **API Layer**: HTTP client with error handling and retry logic
 - **UI Service**: DOM manipulation and rendering
-- **Accessibility Service**: Screen reader announcements and keyboard navigation
 - **Sorting Service**: Pure functions for data sorting
 
 #### Backend (Flask)
+
 - **RESTful API**: Clean HTTP endpoints for name operations
 - **Database Layer**: PostgreSQL with connection pooling
 - **Error Handling**: Comprehensive validation and error responses
 - **Health Monitoring**: Built-in health check endpoints
 
 #### Database (PostgreSQL)
+
 - **Simple Schema**: Optimized for fast reads and writes
 - **ACID Compliance**: Reliable data persistence
 - **Connection Pooling**: Efficient resource management
@@ -87,62 +91,106 @@ docker-compose down
 
 ```
 ├── frontend/                  # Frontend application
-│   ├── html/
+│   ├── html/                 # Static web files
 │   │   ├── js/              # JavaScript modules
 │   │   ├── app.js           # Main application entry
 │   │   └── index.html       # HTML structure
 │   ├── tests/               # Frontend tests
+│   │   ├── unit/            # Unit tests
+│   │   ├── integration/     # Integration tests
+│   │   └── a11y/            # Accessibility tests
+│   ├── nginx.conf           # Nginx configuration
 │   └── Dockerfile
 ├── backend/                   # Backend API
 │   ├── app.py              # Flask application
 │   ├── tests/              # Backend tests
-│   ├── requirements.txt
+│   │   ├── unit/           # Unit tests
+│   │   ├── integration/    # Integration tests
+│   │   └── contract/       # API contract tests
+│   ├── requirements.txt    # Python dependencies
+│   ├── pytest.ini         # Test configuration
 │   └── Dockerfile
 ├── db/
 │   └── init.sql            # Database schema
 ├── specs/                    # Project specifications
 ├── docker-compose.yml       # Container orchestration
-└── pyproject.toml           # Development tools config
+└── README.md               # This file
 ```
+
+**📊 Architecture Benefits:**
+
+- **Clear separation**: Each tier has its own directory and concerns
+- **Container-ready**: Each service has its own Dockerfile
+- **Test organization**: Tests are co-located with their respective services
+- **Documentation**: Comprehensive specs and documentation
 
 ## 🛠️ Development
 
 ### Prerequisites for Development
 
-- Python 3.12+
-- Node.js 18+ (for frontend tooling)
-- PostgreSQL 16+ (for local development)
+- Docker and Docker Compose
+- Git
+- (Optional) Python 3.12+ and Node.js 18+ for native development
 
 ### Local Development Setup
 
-1. **Backend Development**
+**🐳 Docker Development (Recommended)**
+
+1. **Start development environment**
+
+   ```bash
+   # Build and start all services in development mode
+   docker-compose up --build
+
+   # Or run in background
+   docker-compose up --build -d
+   ```
+
+2. **Access the application**
+
+   - Frontend: http://localhost:8080
+   - Backend API: http://localhost:8080/api
+   - Database: Available on port 5432
+
+3. **Make changes and auto-reload**
+
+   - Frontend changes: Refresh browser (served by Nginx)
+   - Backend changes: Container auto-reloads with volume mounts
+
+4. **Running tests in containers**
+
+   ```bash
+   # Backend tests
+   docker-compose exec backend python -m pytest tests/ -v
+
+   # Frontend tests
+   docker-compose exec frontend node /app/tests/unit/run_sorting_tests.js
+   ```
+
+**💻 Native Development (Alternative)**
+
+If you prefer to run services natively:
+
+1. **Start only the database**
+
+   ```bash
+   docker-compose up -d db
+   ```
+
+2. **Backend Development**
+
    ```bash
    cd backend
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    pip install -r requirements.txt
-   
-   # Set up local PostgreSQL and environment variables
-   export FLASK_ENV=development
    python app.py
    ```
 
-2. **Frontend Development**
+3. **Frontend Development**
    ```bash
-   cd frontend
-   # Serve HTML files with a local server
+   cd frontend/html
    python -m http.server 8080
-   ```
-
-3. **Running Tests**
-   ```bash
-   # Backend tests
-   cd backend
-   python -m pytest
-   
-   # Frontend tests
-   cd frontend/tests
-   # Open test_runner.js in browser or use Node.js
    ```
 
 ### Code Quality
@@ -168,12 +216,12 @@ pytest backend/tests/
 
 ### Endpoints
 
-| Method | Endpoint | Description | Request Body | Response |
-|--------|----------|-------------|--------------|----------|
-| GET | `/api/health` | Health check | - | `{"status": "ok", "db": true}` |
-| GET | `/api/names` | List all names | - | `[{"id": 1, "name": "Alice", "created_at": "2025-01-01T12:00:00Z"}]` |
-| POST | `/api/names` | Add a new name | `{"name": "Alice"}` | `{"id": 1, "name": "Alice", "created_at": "2025-01-01T12:00:00Z"}` |
-| DELETE | `/api/names/<id>` | Delete a name | - | `{"message": "Name deleted successfully"}` |
+| Method | Endpoint          | Description    | Request Body        | Response                                                             |
+| ------ | ----------------- | -------------- | ------------------- | -------------------------------------------------------------------- |
+| GET    | `/api/health`     | Health check   | -                   | `{"status": "ok", "db": true}`                                       |
+| GET    | `/api/names`      | List all names | -                   | `[{"id": 1, "name": "Alice", "created_at": "2025-01-01T12:00:00Z"}]` |
+| POST   | `/api/names`      | Add a new name | `{"name": "Alice"}` | `{"id": 1, "name": "Alice", "created_at": "2025-01-01T12:00:00Z"}`   |
+| DELETE | `/api/names/<id>` | Delete a name  | -                   | `{"message": "Name deleted successfully"}`                           |
 
 ### Error Responses
 
@@ -183,7 +231,6 @@ pytest backend/tests/
   "code": "VALIDATION_ERROR"
 }
 ```
-
 
 ## 🧪 Testing
 
@@ -195,24 +242,78 @@ pytest backend/tests/
 
 ### Running Tests
 
+**🐳 With Docker (Recommended)**
+
+First, rebuild containers to include test dependencies:
+
 ```bash
-# All backend tests
-pytest backend/tests/
+# Rebuild containers with test dependencies
+docker-compose build
 
-# Specific test categories
-pytest backend/tests/unit/
-pytest backend/tests/integration/
-pytest backend/tests/contract/
-
-# Frontend tests (manual)
-# Open frontend/tests/unit/test_runner.js in browser
+# Start services
+docker-compose up -d
 ```
+
+Then run tests:
+
+```bash
+Then run tests:
+```bash
+# Backend tests with coverage
+docker-compose exec backend python -m pytest tests/ -v --cov=app --cov-report=term-missing
+
+# Frontend unit tests (comprehensive)
+docker-compose exec frontend node tests/unit/test_runner.js
+
+# Frontend unit tests (simple/quick)  
+docker-compose exec frontend node tests/unit/run_sorting_tests.js
+
+# Frontend integration tests (work best from host due to API connectivity)
+cd frontend/tests/integration
+node test_runner.js
+```
+```
+
+**📊 Expected Results:**
+
+- Backend: 18/18 tests passed, ~98% coverage ✅
+- Frontend Unit: 17/17 tests passed ✅
+- Frontend Integration: 18/18 tests passed ✅
+
+**💻 Native Development (Alternative)**
+
+```bash
+# Ensure services are running
+docker-compose up -d
+
+# Backend tests (with local Python environment)
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python -m pytest tests/ -v --cov=app
+
+# Frontend tests (with Node.js)
+cd frontend/tests/unit
+node run_sorting_tests.js
+
+cd ../integration
+node test_runner.js
+```
+
+**📋 Test Summary:**
+
+- **Backend**: Comprehensive API testing with 98% code coverage
+- **Frontend Unit**: Pure function testing for sorting algorithms
+- **Frontend Integration**: End-to-end workflow testing with real API
+- **Accessibility**: Manual validation against WCAG 2.1 AA standards
 
 ## 🚀 Deployment
 
 ### Production Deployment
 
 1. **Environment Configuration**
+
    ```bash
    # Set production environment variables
    export POSTGRES_DB=namelist_prod

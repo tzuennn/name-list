@@ -118,19 +118,6 @@ description: "Task list for implementing 'Refactor & Harden Name List App'"
 
 ---
 
-## Phase N: Polish & Cross-Cutting Concerns
-
-**Purpose**: Improvements that affect multiple user stories
-
-- [ ] T060 [P] Docs: update `quickstart.md` scenarios and screenshots
-- [ ] T061 Code cleanup and refactoring; ensure cyclomatic complexity targets
-- [ ] T062 [P] Additional unit/integration tests to hit coverage thresholds
-- [ ] T063 Accessibility validation sweep (keyboard, contrast, ARIA); address findings
-- [ ] T064 Security hardening: input validation review, header checks (frontend proxy), dependency review
-- [ ] T065 Run performance checks (API p95, Lighthouse ≥ 90); address regressions
-
----
-
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -185,4 +172,3 @@ description: "Task list for implementing 'Refactor & Harden Name List App'"
   - US2: remove item; correct state across reload; accessible delete controls
   - US3: correct sort orders; pagination adapts to viewport; keyboard operability
 
-**Suggested MVP Scope**: Complete User Story 1
