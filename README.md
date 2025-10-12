@@ -256,7 +256,7 @@ docker-compose up -d
 
 Then run tests:
 
-```bash
+````bash
 Then run tests:
 ```bash
 # Backend tests with coverage
@@ -265,41 +265,21 @@ docker-compose exec backend python -m pytest tests/ -v --cov=app --cov-report=te
 # Frontend unit tests (comprehensive)
 docker-compose exec frontend node tests/unit/test_runner.js
 
-# Frontend unit tests (simple/quick)  
+# Frontend unit tests (simple/quick)
 docker-compose exec frontend node tests/unit/run_sorting_tests.js
 
 # Frontend integration tests (work best from host due to API connectivity)
 cd frontend/tests/integration
 node test_runner.js
-```
-```
+````
+
+````
 
 **📊 Expected Results:**
 
 - Backend: 18/18 tests passed, ~98% coverage ✅
 - Frontend Unit: 17/17 tests passed ✅
 - Frontend Integration: 18/18 tests passed ✅
-
-**💻 Native Development (Alternative)**
-
-```bash
-# Ensure services are running
-docker-compose up -d
-
-# Backend tests (with local Python environment)
-cd backend
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python -m pytest tests/ -v --cov=app
-
-# Frontend tests (with Node.js)
-cd frontend/tests/unit
-node run_sorting_tests.js
-
-cd ../integration
-node test_runner.js
-```
 
 **📋 Test Summary:**
 
@@ -308,30 +288,6 @@ node test_runner.js
 - **Frontend Integration**: End-to-end workflow testing with real API
 - **Accessibility**: Manual validation against WCAG 2.1 AA standards
 
-## 🚀 Deployment
-
-### Production Deployment
-
-1. **Environment Configuration**
-
-   ```bash
-   # Set production environment variables
-   export POSTGRES_DB=namelist_prod
-   export POSTGRES_USER=namelist_user
-   export POSTGRES_PASSWORD=secure_password
-   ```
-
-2. **Deploy with Docker Compose**
-   ```bash
-   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-   ```
-
-### Performance Considerations
-
-- **Database Connection Pooling**: Configured for optimal concurrent connections
-- **Nginx Caching**: Static assets cached for improved performance
-- **Gzip Compression**: Enabled for all text-based content
-- **Pagination**: Adaptive page sizes prevent large data transfer
 
 ## 🤝 Contributing
 

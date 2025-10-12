@@ -23,7 +23,7 @@ Names List is designed to be a reference implementation of a modern, accessible 
 
 1. **Fork and Clone**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/name-list.git
+   git clone https://github.com/tzuennn/name-list.git
    cd name-list
    git remote add upstream https://github.com/tzuennn/name-list.git
    ```
