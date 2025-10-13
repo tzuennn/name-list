@@ -271,9 +271,7 @@ docker-compose exec frontend node tests/unit/run_sorting_tests.js
 # Frontend integration tests (work best from host due to API connectivity)
 cd frontend/tests/integration
 node test_runner.js
-````
 
-````
 
 **📊 Expected Results:**
 
