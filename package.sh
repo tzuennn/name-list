@@ -7,7 +7,7 @@ echo "📦 Packaging HW3 Enhanced Name List Application..."
 
 # Set archive name
 ARCHIVE_NAME="name-list-enhanced.tgz"
-PROJECT_DIR="HW3_曾子恩"
+PROJECT_DIR="name-list"
 
 # Clean up any existing archive
 rm -f "$ARCHIVE_NAME"

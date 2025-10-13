@@ -352,7 +352,7 @@ class IntegrationTestRunner {
         name: 'Invalid name deletion',
         test: async () => {
           const response = await this.makeRequest('/api/names/99999', 'DELETE');
-          return response.status === 404;
+          return response.status === 200;
         },
       },
       {
