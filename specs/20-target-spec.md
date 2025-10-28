@@ -1,109 +1,210 @@
-# Target: Enhanced Name List App (COMPLETED)
+# Target: Distributed 3-Tier App with Docker Swarm (HW5)
 
-**Date**: 2025-10-11 | **Status**: ACHIEVED - Current Codebase State
+**Date**: 2025-10-28 | **Status**: PLANNED - Multi-Node Swarm Architecture
 
-## ✅ Enhancements Completed
+## 🎯 HW5 Goal: Multi-Node Distributed Deployment
 
-### 1. Enhanced Frontend Architecture (DONE)
+Transform the enhanced single-host application (HW4) into a distributed system using Docker Swarm orchestration across two nodes.
 
-```javascript
-// Modular JavaScript architecture implemented:
-api.js           → HTTP client with error handling
-ui.js            → DOM manipulation and event handling
-sorting.js       → Client-side sort algorithms
-state.js         → Application state management
-accessibility.js → WCAG 2.1 AA compliance implementation
-```
+## Target Architecture Overview
 
-### 2. Sorting & Pagination Features (DONE)
-
-- **Client-side sorting**: Ascending/descending by name or date
-- **Pagination controls**: 10 items per page with navigation
-- **Responsive interface**: Mobile-optimized design
-- **State persistence**: Maintains sort order and page state
-
-### 3. Comprehensive Testing Suite (DONE)
+### Node Distribution Strategy
 
 ```
-backend/tests/
-├── unit/          # Input validation, business logic
-├── integration/   # API endpoints, database operations
-├── contract/      # API contract validation
-frontend/tests/
-├── unit/          # JavaScript module testing
-├── integration/   # UI component integration
-├── a11y/          # Accessibility compliance testing
+┌─────────────────────────────────────────────────────────────┐
+│ MANAGER NODE (Student Laptop - macOS)                      │
+├─────────────────────────────────────────────────────────────┤
+│ • Swarm Manager Role                                        │
+│ • Services: web (Nginx), api (Flask)                       │
+│ • Ingress: Port 80 → web service                          │
+│ • Overlay Network: appnet                                   │
+└─────────────────────────────────────────────────────────────┘
+              ↕ (Docker Swarm Communication)
+┌─────────────────────────────────────────────────────────────┐
+│ WORKER NODE (VirtualBox VM - Ubuntu)                       │
+├─────────────────────────────────────────────────────────────┤
+│ • Swarm Worker Role                                         │
+│ • Services: db (PostgreSQL) ONLY                           │
+│ • Storage: /var/lib/postgres-data (persistent)             │
+│ • Node Label: role=db                                       │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### 4. Accessibility Implementation (DONE)
+## Distributed Architecture Requirements
 
-- **WCAG 2.1 AA compliance**: Screen reader support, keyboard navigation
-- **ARIA labels**: Comprehensive semantic markup
-- **Focus management**: Logical tab order and focus indicators
-- **Error announcements**: Screen reader feedback for operations
+### 1. Docker Swarm Orchestration
 
-### 5. Enhanced Error Handling (DONE)
+```yaml
+# Target swarm/stack.yaml structure:
+networks:
+  appnet:
+    driver: overlay
+    attachable: true
 
-- **User-friendly messages**: Clear feedback for all operations
-- **API error handling**: Graceful degradation and retry logic
-- **Form validation**: Real-time input validation with feedback
-- **Loading states**: Visual feedback during operations
+volumes:
+  dbdata:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/postgres-data
 
-## Current Architecture Benefits
+services:
+  web:
+    deploy:
+      replicas: 2
+      placement:
+        constraints: ["node.role == manager"]
+    ports: ["80:80"]
 
-### Maintainable Codebase
+  api:
+    deploy:
+      replicas: 2
+      placement:
+        constraints: ["node.role == manager"]
 
-- **Modular design**: Separated concerns, easy to extend
-- **Comprehensive testing**: >80% backend, >75% frontend coverage
-- **Clear documentation**: API contracts and component documentation
-- **Docker deployment**: Consistent development and production environments
-
-### Production-Ready Features
-
-- **Accessibility compliance**: Fully usable with assistive technologies
-- **Responsive design**: Works across all device sizes
-- **Error resilience**: Graceful handling of network and API failures
-- **Performance optimized**: <50ms API responses, efficient DOM updates
-
-## Future Enhancement Opportunities
-
-### 1. Advanced Backend Features
-
-```http
-# Potential additions:
-GET    /api/names?search=<query>&sort=<field>&page=<n>  # Server-side search
-POST   /api/names/bulk           # Batch operations
-GET    /api/names/export         # CSV/JSON export
+  db:
+    deploy:
+      replicas: 1
+      placement:
+        constraints: ["node.labels.role == db"]
 ```
 
-### 2. Enhanced User Experience
+### 2. Network Architecture
 
-- **Search functionality**: Full-text search with highlighting
-- **Bulk operations**: Import/export, batch selection
-- **Offline support**: Service worker for offline functionality
-- **Theme support**: Dark/light mode toggle
+- **Overlay Network**: `appnet` for cross-node service communication
+- **Service Discovery**: DNS-based (api → db, web → api)
+- **Ingress Load Balancing**: Automatic across web replicas
+- **Port Publishing**: Only port 80 exposed on manager node
 
-### 3. Scalability Improvements
+### 3. Storage Strategy
 
-- **Server-side pagination**: Handle 10,000+ items efficiently
-- **Database indexing**: Optimized search and sort queries
-- **Caching layer**: Redis for improved performance
-- **CDN integration**: Static asset optimization
+- **Database Persistence**: Bind mount to `/var/lib/postgres-data` on worker node
+- **Data Durability**: Survives container recreation and node restarts
+- **Backup Strategy**: Local filesystem on worker node (documented process)
 
-## Implementation Success
+### 4. Deployment Constraints
 
-### Quality Metrics Achieved
+- **DB Placement**: MUST run only on worker node (VirtualBox VM)
+- **Web/API Placement**: MUST run only on manager node (laptop)
+- **Replica Strategy**: 2 replicas each for web/api, 1 for database
+- **Resource Allocation**: Appropriate limits for VM constraints
 
-- **Test Coverage**: >80% backend, >75% frontend
-- **Accessibility**: 100% WCAG 2.1 AA compliance
-- **Performance**: <50ms API response times
-- **Code Quality**: Modular, maintainable architecture
+## Enhanced Features for Production-Like Deployment
 
-### Developer Experience Improvements
+### 1. Health Monitoring
 
-- **Clear separation of concerns**: Easy to understand and modify
-- **Comprehensive testing**: Confident code changes
-- **Documentation**: Well-documented APIs and components
-- **Docker workflow**: Consistent development environment
+```yaml
+# Enhanced health checks:
+db:
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U dbuser"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 60s
+
+api:
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+
+web:
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:80/"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+```
+
+### 2. Service Discovery Validation
+
+- **Cross-node communication**: API connects to DB via `postgresql://dbuser:dbpass@db:5432/namesdb`
+- **DNS resolution**: Services resolve by name across overlay network
+- **Connection resilience**: Retry logic for temporary network issues
+
+### 3. Load Balancing Demonstration
+
+- **Multiple web replicas**: Show round-robin distribution
+- **Session consistency**: Stateless design supports load balancing
+- **Health-based routing**: Unhealthy replicas automatically excluded
+
+## Operational Requirements
+
+### 1. Automation Scripts
+
+```bash
+ops/
+├── init-swarm.sh      # Initialize swarm, output join token
+├── setup-worker.sh    # Configure worker node (VirtualBox)
+├── deploy.sh          # Deploy stack from manager
+├── verify.sh          # End-to-end deployment verification
+├── cleanup.sh         # Tear down stack and swarm
+└── backup-db.sh       # Database backup procedure
+```
+
+### 2. Evidence Documentation
+
+```markdown
+docs/EVIDENCE.md structure:
+├── Swarm Topology (docker node ls)
+├── Service Placement (docker service ps)
+├── Network Connectivity Tests
+├── Load Balancing Demonstration
+├── Data Persistence Validation
+├── Health Check Status
+└── Performance Metrics
+```
+
+### 3. Deployment Verification
+
+- **Topology Verification**: `docker node ls` shows manager + worker
+- **Service Placement**: DB on worker, web/api on manager
+- **Connectivity**: End-to-end application functionality
+- **Persistence**: Data survives database service updates
+- **Load Balancing**: Multiple requests show different container IDs
+
+## Success Criteria
+
+### Functional Requirements
+
+- [ ] Application accessible via `http://manager-ip/` (port 80)
+- [ ] All HW4 features work in distributed deployment
+- [ ] Database persistence across container recreation
+- [ ] Service-to-service communication via overlay network
+- [ ] Health checks report service status correctly
+
+### Operational Requirements
+
+- [ ] Swarm initialized with 2+ nodes (manager + worker)
+- [ ] Services deployed with correct placement constraints
+- [ ] Load balancing demonstrated across web replicas
+- [ ] Database backup/restore procedure documented
+- [ ] Complete ops automation scripts functional
+
+### Documentation Requirements
+
+- [ ] Updated specs reflect distributed architecture
+- [ ] Evidence package with command outputs and screenshots
+- [ ] Demo video showing end-to-end deployment
+- [ ] Troubleshooting guide for common deployment issues
+
+## Risk Mitigation
+
+### Technical Risks
+
+- **Network Connectivity**: VirtualBox host-only adapter + NAT configuration
+- **Storage Permissions**: Proper user/group mapping for bind mounts
+- **Swarm Communication**: Firewall configuration for required ports (2377, 7946, 4789)
+- **Resource Constraints**: VM sizing appropriate for PostgreSQL workload
+
+### Operational Risks
+
+- **VM Management**: Automated VM setup and configuration scripts
+- **State Recovery**: Database backup strategy and restoration procedures
+- **Version Control**: Stack definition versioning and rollback capability
+- **Monitoring**: Health check configuration and alerting strategy
 
 ---
