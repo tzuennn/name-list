@@ -49,7 +49,7 @@ WORKER NODE (VirtualBox Ubuntu VM)
 
 - Ubuntu 22.04 LTS Server
 - 2GB RAM, 20GB disk
-- Network: NAT + Host-only adapter
+- Network: NAT + Host-only Network
 - Docker CE installed
 - SSH enabled for remote management
 
@@ -69,11 +69,11 @@ WORKER NODE (VirtualBox Ubuntu VM)
 2. Create VM with dual network adapters (NAT + Host-only)
 3. Install Ubuntu with SSH server enabled
 4. Install Docker CE and configure user permissions
-5. Configure static IP on host-only adapter
+5. Configure static IP on Host-only Network
 
 **Network Configuration**:
 
-1. Configure host-only adapter for VM ↔ laptop communication
+1. Configure Host-only Network for VM ↔ laptop communication
 2. Test SSH connectivity from laptop to VM
 3. Verify internet access from VM (for Docker images)
 4. Document IP addresses and network setup

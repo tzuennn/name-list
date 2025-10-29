@@ -23,9 +23,9 @@ Tasks grouped by implementation phases for systematic distributed deployment dev
 ### VM Creation & Configuration
 
 - [ ] T001 [P] Download and install VirtualBox + Ubuntu 22.04 LTS Server ISO
-- [ ] T002 Create VirtualBox VM with dual network (NAT + Host-only adapter) — 2GB RAM, 20GB disk
+- [ ] T002 Create VirtualBox VM with dual network (NAT + Host-only Network) — 2GB RAM, 20GB disk
 - [ ] T003 Install Ubuntu Server with SSH enabled — user: `swarm`, minimal installation
-- [ ] T004 Configure host-only network adapter with static IP — document IP address mapping
+- [ ] T004 Configure host-only network with static IP — document IP address mapping
 - [ ] T005 [P] Install Docker CE on VM and add user to docker group — verify with `docker run hello-world`
 
 ### Network Connectivity Verification
