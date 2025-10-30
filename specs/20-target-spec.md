@@ -4,29 +4,32 @@
 
 ## 🎯 HW5 Goal: Multi-Node Distributed Deployment
 
-Transform the enhanced single-host application (HW4) into a distributed system using Docker Swarm orchestration across two nodes.
+Transform the enhanced single-host application (HW4) into a distributed system using Docker Swarm orchestration across two nodes, simulated via Docker-in-Docker (DinD).
 
 ## Target Architecture Overview
 
-### Node Distribution Strategy
+### Node Distribution Strategy (Docker-in-Docker Simulation)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ MANAGER NODE (Student Laptop - macOS)                      │
-├─────────────────────────────────────────────────────────────┤
-│ • Swarm Manager Role                                        │
-│ • Services: web (Nginx), api (Flask)                       │
-│ • Ingress: Port 80 → web service                          │
-│ • Overlay Network: appnet                                   │
-└─────────────────────────────────────────────────────────────┘
-              ↕ (Docker Swarm Communication)
-┌─────────────────────────────────────────────────────────────┐
-│ WORKER NODE (VirtualBox VM - Ubuntu)                       │
-├─────────────────────────────────────────────────────────────┤
-│ • Swarm Worker Role                                         │
-│ • Services: db (PostgreSQL) ONLY                           │
-│ • Storage: /var/lib/postgres-data (persistent)             │
-│ • Node Label: role=db                                       │
+│ HOST (macOS Laptop - Docker Desktop)                       │
+│  ┌───────────────────────────────────────────────────────┐ │
+│  │ MANAGER CONTAINER (docker:24-dind)                    │ │
+│  │ • Swarm Manager Role                                  │ │
+│  │ • Services: web (Nginx), api (Flask)                 │ │
+│  │ • Ingress: Port 80/8080 → host                        │ │
+│  │ • Overlay Network: appnet                             │ │
+│  │ • Hostname: manager                                   │ │
+│  └───────────────────────────────────────────────────────┘ │
+│               ↕ (Bridge Network: swarm-sim-net)            │
+│  ┌───────────────────────────────────────────────────────┐ │
+│  │ WORKER CONTAINER (docker:24-dind)                     │ │
+│  │ • Swarm Worker Role                                   │ │
+│  │ • Services: db (PostgreSQL) ONLY                      │ │
+│  │ • Storage: db-data volume (persistent)                │ │
+│  │ • Node Label: role=db                                 │ │
+│  │ • Hostname: worker                                    │ │
+│  └───────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -79,9 +82,10 @@ services:
 
 ### 3. Storage Strategy
 
-- **Database Persistence**: Bind mount to `/var/lib/postgres-data` on worker node
-- **Data Durability**: Survives container recreation and node restarts
-- **Backup Strategy**: Local filesystem on worker node (documented process)
+- **Database Persistence**: Docker named volume `db-data` managed by Docker Swarm
+- **Data Durability**: Survives container recreation and service updates
+- **Volume Location**: Stored within worker DinD container's Docker storage
+- **Backup Strategy**: Volume backup via `docker cp` or `docker run --rm` commands
 
 ### 4. Deployment Constraints
 
@@ -137,12 +141,12 @@ web:
 
 ```bash
 ops/
-├── init-swarm.sh      # Initialize swarm, output join token
-├── setup-worker.sh    # Configure worker node (VirtualBox)
+├── init-swarm.sh      # Initialize DinD containers and swarm cluster
+├── build-images.sh    # Build Docker images inside manager container
 ├── deploy.sh          # Deploy stack from manager
 ├── verify.sh          # End-to-end deployment verification
-├── cleanup.sh         # Tear down stack and swarm
-└── backup-db.sh       # Database backup procedure
+├── cleanup.sh         # Tear down stack and DinD infrastructure
+└── complete-setup.sh  # One-command setup (calls init, build, deploy)
 ```
 
 ### 2. Evidence Documentation
@@ -195,16 +199,26 @@ docs/EVIDENCE.md structure:
 
 ### Technical Risks
 
-- **Network Connectivity**: VirtualBox host-only adapter + NAT configuration
-- **Storage Permissions**: Proper user/group mapping for bind mounts
-- **Swarm Communication**: Firewall configuration for required ports (2377, 7946, 4789)
-- **Resource Constraints**: VM sizing appropriate for PostgreSQL workload
+- **Docker-in-Docker DNS**: Service name resolution timing issues
+  - **Mitigation**: Lazy connection pooling in backend, network aliases
+  - **Status**: ✅ Resolved with `get_pool()` function
+- **Nginx Proxy Configuration**: Path doubling issues with proxy_pass
+  - **Mitigation**: Variable-based upstream, careful path configuration
+  - **Status**: ✅ Resolved with `proxy_pass http://$backend_upstream;`
+- **Healthcheck Failures**: Missing dependencies or wrong endpoints
+  - **Mitigation**: Install curl in backend, add `/healthz` endpoint, 30s start_period
+  - **Status**: ✅ All healthchecks passing
 
 ### Operational Risks
 
-- **VM Management**: Automated VM setup and configuration scripts
-- **State Recovery**: Database backup strategy and restoration procedures
-- **Version Control**: Stack definition versioning and rollback capability
-- **Monitoring**: Health check configuration and alerting strategy
+- **DinD Container Management**: Privileged containers required
+  - **Mitigation**: Isolated bridge network, managed via docker-compose
+  - **Status**: ✅ Infrastructure stable
+- **State Recovery**: Database backup and restoration procedures
+  - **Mitigation**: Named volumes persist independently, backup via `docker cp`
+  - **Status**: ✅ Data persists across service updates
+- **Resource Allocation**: Docker Desktop resource limits
+  - **Mitigation**: Lightweight alpine images, efficient service design
+  - **Status**: ✅ No resource constraints observed
 
 ---

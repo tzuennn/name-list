@@ -40,15 +40,26 @@ Enhanced 3-tier web application with modular JavaScript frontend, robust Flask b
 ```yaml
 # docker-compose.yml structure:
 services:
-  web: # Nginx frontend (port 80)
-  api: # Flask backend (port 8000)
-  db: # PostgreSQL (port 5432)
+  db:
+    image: postgres:16-alpine
+    ports: ["5433:5432"]
+    volumes: [db-data, ./db/init.sql]
+
+  backend:
+    build: ./backend
+    depends_on: [db]
+    expose: ["8000"]
+
+  frontend:
+    build: ./frontend
+    depends_on: [backend]
+    ports: ["8080:80"]
 
 networks:
-  default: # Single bridge network
+  appnet: # Bridge network
 
 volumes:
-  postgres_data: # Local volume
+  db-data: # Local volume for PostgreSQL
 ```
 
 ## Constraints & Limitations (HW4)

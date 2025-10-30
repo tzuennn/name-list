@@ -25,121 +25,150 @@ Transform the enhanced single-host Name List application (HW4 baseline) into a d
 
 ## Infrastructure Strategy
 
-### Node Architecture
+### Docker-in-Docker Architecture
 
 ```
-MANAGER NODE (macOS Laptop)
-├── Docker Swarm Manager Role
-├── Services: web (Nginx), api (Flask)
-├── Ingress: Port 80 published
-├── Networks: appnet overlay
-└── Placement: node.role == manager
-
-WORKER NODE (VirtualBox Ubuntu VM)
-├── Docker Swarm Worker Role
-├── Services: db (PostgreSQL) ONLY
-├── Storage: /var/lib/postgres-data bind mount
-├── Networks: appnet overlay
-└── Placement: node.labels.role == db
+HOST (macOS Docker Desktop)
+├── swarm-manager container (docker:24-dind)
+│   ├── Docker Swarm Manager Role
+│   ├── Services: web (Nginx), api (Flask)
+│   ├── Ports: 80:80, 8080:8080 published to host
+│   ├── Networks: swarm-sim-net (bridge), appnet (overlay)
+│   ├── Volume: manager-state, project mount at /app
+│   └── Placement: node.role == manager
+│
+└── swarm-worker container (docker:24-dind)
+    ├── Docker Swarm Worker Role
+    ├── Services: db (PostgreSQL) ONLY
+    ├── Networks: swarm-sim-net (bridge), appnet (overlay)
+    ├── Volumes: worker-state, db-data
+    └── Placement: node.labels.role == db
 ```
 
-### VirtualBox VM Setup
+### DinD Setup via docker-compose.dind.yml
 
-**VM Configuration**:
+**Infrastructure Configuration**:
 
-- Ubuntu 22.04 LTS Server
-- 2GB RAM, 20GB disk
-- Network: NAT + Host-only Network
-- Docker CE installed
-- SSH enabled for remote management
+- Two privileged containers running docker:24-dind
+- Bridge network `swarm-sim-net` for inter-container communication
+- Manager exposes ports 80 and 8080 to host
+- Project directory mounted at `/app` in manager
+- Persistent volumes for Docker state and database data
 
 **Storage Strategy**:
 
-- Bind mount: `/var/lib/postgres-data` on VM
-- Persistent across container recreation
-- Backup strategy: filesystem-level on VM
+- Named volume: `db-data` for PostgreSQL persistence
+- Volume managed by Docker within worker container
+- Backup strategy: `docker cp` or volume backup commands
 
 ## Implementation Phases
 
 ### Phase 1: Infrastructure Preparation
 
-**VirtualBox VM Setup**:
+**Docker-in-Docker Setup**:
 
-1. Download and install VirtualBox + Ubuntu Server ISO
-2. Create VM with dual network adapters (NAT + Host-only)
-3. Install Ubuntu with SSH server enabled
-4. Install Docker CE and configure user permissions
-5. Configure static IP on Host-only Network
+1. Create `docker-compose.dind.yml` with manager and worker services
+2. Configure privileged mode for both containers
+3. Set up bridge network for inter-container communication
+4. Configure port mappings (80, 8080 to host)
+5. Mount project directory at `/app` in manager
 
-**Network Configuration**:
+**Infrastructure Startup**:
 
-1. Configure Host-only Network for VM ↔ laptop communication
-2. Test SSH connectivity from laptop to VM
-3. Verify internet access from VM (for Docker images)
-4. Document IP addresses and network setup
+1. Run `docker-compose -f docker-compose.dind.yml up -d`
+2. Wait for Docker daemons to start in both containers (~10s)
+3. Verify both containers are running
+4. Test Docker access inside containers
 
 ### Phase 2: Swarm Initialization
 
-**Swarm Setup Scripts**:
+**Swarm Setup Script** (`ops/init-swarm.sh`):
 
-```bash
-ops/init-swarm.sh       # Initialize swarm on laptop
-ops/setup-worker.sh     # Configure VM to join swarm
-ops/label-nodes.sh      # Apply placement constraint labels
-```
+1. Get manager container's IP address in bridge network
+2. Execute `docker swarm init` inside manager container
+3. Retrieve worker join token from manager
+4. Execute `docker swarm join` inside worker container
+5. Apply `role=db` label to worker node
+6. Verify cluster topology with `docker node ls`
 
 **Network Creation**:
 
-- Create overlay network `appnet` for service communication
-- Configure service discovery (DNS-based)
-- Test cross-node connectivity
+- Overlay network `appnet` created via stack.yaml
+- Service discovery via network aliases (api, backend, db)
+- DNS resolver configured in nginx (127.0.0.11)
 
 ### Phase 3: Stack Definition
 
 **swarm/stack.yaml Development**:
 
 ```yaml
-# Key requirements:
+# Actual implementation:
 networks:
-  appnet: { driver: overlay }
+  appnet:
+    driver: overlay
+    attachable: true
 
 volumes:
-  dbdata: { bind mount to /var/lib/postgres-data }
+  db-data:
+    driver: local
+
+configs:
+  db_init:
+    file: /app/db/init.sql # Mounted from project dir
 
 services:
   db:
+    image: postgres:14-alpine
     placement: ["node.labels.role == db"]
     replicas: 1
-  web/api:
+    configs: [db_init]
+
+  api:
+    image: tzuennn/name-list-backend:latest
     placement: ["node.role == manager"]
-    replicas: 2 each
+    replicas: 1
+
+  web:
+    image: tzuennn/name-list-frontend:latest
+    placement: ["node.role == manager"]
+    replicas: 2
 ```
 
 **Service Configuration**:
 
-- Database: PostgreSQL with persistent storage on worker
-- API: Flask with environment pointing to `db` service
-- Web: Nginx with load balancing across API replicas
-- Health checks: pg_isready, curl /healthz
+- Database: PostgreSQL 14-alpine with init.sql via Docker configs
+- API: Flask backend with lazy connection pooling, curl installed
+- Web: Nginx with variable-based upstream for runtime DNS resolution
+- Health checks: pg_isready, curl /healthz with 30s start_period
+- Network aliases: api, backend, db for service discovery
 
 ### Phase 4: Deployment Automation
 
 **Operations Scripts**:
 
 ```bash
-ops/deploy.sh          # Deploy stack from stack.yaml
-ops/verify.sh          # End-to-end deployment verification
-ops/cleanup.sh         # Remove stack and swarm
-ops/backup-db.sh       # Database backup procedure
+ops/init-swarm.sh       # DinD infrastructure + swarm cluster setup
+ops/build-images.sh     # Build Docker images inside manager
+ops/deploy.sh           # Deploy stack from swarm/stack.yaml
+ops/verify.sh           # End-to-end deployment verification
+ops/cleanup.sh          # Remove stack and DinD infrastructure
+ops/complete-setup.sh   # One-command: init → build → deploy
 ```
+
+**Build Process** (`ops/build-images.sh`):
+
+- Builds frontend and backend images inside manager container
+- Uses context from mounted `/app` directory
+- Tags images as `tzuennn/name-list-backend:latest` and `tzuennn/name-list-frontend:latest`
+- No registry push needed (built on manager, deployed on manager/worker)
 
 **Verification Process**:
 
-- Topology: `docker node ls` shows manager + worker
-- Placement: `docker service ps` confirms service distribution
-- Connectivity: End-to-end application functionality
-- Persistence: Data survives database service updates
-- Load balancing: Multiple web replicas serve requests
+- Topology: `docker node ls` shows manager (Leader) + worker
+- Placement: `docker service ps` confirms DB on worker, web/api on manager
+- Connectivity: curl tests for `/`, `/api/names`, `/healthz`
+- Persistence: Data survives `docker service update` operations
+- Load balancing: Multiple web replicas handle requests
 
 ### Phase 5: Documentation & Evidence
 
@@ -158,39 +187,45 @@ ops/backup-db.sh       # Database backup procedure
 
 ## Risk Management
 
-### Technical Risks
+### Technical Risks (Resolved)
 
-**VirtualBox Networking**:
+**DNS Resolution at Startup** ✅:
 
-- Risk: VM network connectivity issues
-- Mitigation: Detailed network configuration guide, test scripts
-- Fallback: Document alternative VM platforms (VMware, etc.)
+- Risk: API crashes with "could not translate host name 'db'"
+- Solution: Lazy connection pooling - defer DB connection until first request
+- Implementation: `get_pool()` function in backend/app.py
 
-**Docker Swarm Communication**:
+**Nginx Proxy Path Issues** ✅:
 
-- Risk: Firewall blocking swarm ports (2377, 7946, 4789)
-- Mitigation: Port configuration documentation, test connectivity
-- Fallback: Provide firewall configuration examples
+- Risk: Proxy doubling `/api/` prefix causing 404 errors
+- Solution: Removed trailing `/api/` from proxy_pass directive
+- Implementation: `proxy_pass http://$backend_upstream;`
 
-**Storage Persistence**:
+**Healthcheck Failures** ✅:
 
-- Risk: Data loss during VM operations
-- Mitigation: Backup scripts, documented recovery procedures
-- Fallback: Database migration procedures documented
+- Risk: Services killed by failed healthchecks during startup
+- Solution: Added `/healthz` endpoint, installed curl, 30s start_period
+- Implementation: Lightweight health endpoint without DB dependency
 
-### Operational Risks
+### Operational Risks (Mitigated)
 
-**VM Resource Constraints**:
+**DinD Container Startup Time** ✅:
 
-- Risk: VM performance impacting database operations
-- Mitigation: Resource allocation guidelines, monitoring
-- Fallback: Tuning recommendations for constrained environments
+- Risk: Services starting before Docker daemon ready
+- Solution: 10-second sleep in init-swarm.sh
+- Result: Reliable cluster initialization
 
-**Deployment Complexity**:
+**Image Build Context** ✅:
 
-- Risk: Manual deployment steps prone to errors
-- Mitigation: Complete automation scripts, verification checkpoints
-- Fallback: Manual deployment procedures as backup
+- Risk: Build failures due to missing context
+- Solution: Project mounted at `/app` in manager container
+- Result: Builds succeed with full project context
+
+**Service Discovery Timing** ✅:
+
+- Risk: Nginx fails with "host not found in upstream"
+- Solution: Variable-based upstream for runtime DNS resolution
+- Implementation: `set $backend_upstream "backend:8000";`
 
 ## Validation & Acceptance Criteria
 
