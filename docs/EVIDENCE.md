@@ -1,4 +1,4 @@
-# HW3 Evidence Bundle - Docker Swarm Deployment
+# HW5 Evidence Bundle - Docker Swarm Deployment
 
 **Student:** 曾子恩  
 **Date:** October 30, 2025  
@@ -51,6 +51,8 @@ yttcc9b6hwd8r8vontin8ramg *   manager    Ready     Active         Leader        
 nmtfvzzxdhns72z0jnice31w8     worker     Ready     Active                          24.0.9
 ```
 
+![Docker Node List](images/docker-node-ls.png)
+
 **Analysis:**
 
 - ✅ 2 nodes total (meets requirement of 2+ nodes)
@@ -77,6 +79,7 @@ qc5vpamrqqvl   mcapp_db    replicated   1/1        postgres:14-alpine
 zzzy7v9b88ff   mcapp_web   replicated   2/2        tzuennn/name-list-frontend:latest   *:80->80/tcp
 ```
 
+
 **Analysis:**
 
 - ✅ All services converged (replicas match desired state)
@@ -100,6 +103,8 @@ $ docker exec swarm-manager docker service ps mcapp_db
 ID             NAME         IMAGE                NODE      DESIRED STATE   CURRENT STATE            ERROR     PORTS
 punraw1pz1ns   mcapp_db.1   postgres:14-alpine   worker    Running         Running 26 minutes ago
 ```
+
+![Database Service Placement](images/db-placement.png)
 
 **Analysis:**
 

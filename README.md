@@ -78,21 +78,60 @@ A modern, accessible 3-tier web application for managing a persistent list of na
    - Build application images
    - Deploy the stack
 
-2. **Access the application**
+2. **⏱️ Wait for services to be ready (Important!)**
+
+   After deployment, **wait 30-60 seconds** for all services to initialize:
+
+   ```bash
+   # Option A: Use the automated wait script
+   ./ops/wait-for-api.sh
+
+   # Option B: Manual wait
+   sleep 30
+   ```
+
+   **Why the wait?**
+
+   - PostgreSQL needs 5-10 seconds to initialize
+   - Docker Swarm overlay network DNS takes 5-10 seconds to propagate
+   - API needs to establish database connection pool
+   - First requests may fail with 500 errors until everything is ready
+   - This is **expected behavior**
+
+   > 💡 **Tip**: Always use `./ops/wait-for-api.sh` after:
+   >
+   > - Initial deployment (`./ops/complete-setup.sh`)
+   > - Database restarts (`docker service update --force mcapp_db`)
+   > - Stack redeployment
+
+3. **Access the application**
 
    - Frontend: http://localhost
    - Backend API: http://localhost:8080
    - Health check: http://localhost/healthz
 
-3. **Verify deployment**
+4. **Verify deployment**
 
    ```bash
    ./ops/verify.sh
    ```
 
-4. **Stop and cleanup**
+5. **Shutdown options**
+
+   **Option A: Stop and keep data (recommended for demos)**
+
    ```bash
-   ./ops/cleanup.sh
+   ./ops/stop.sh  # Stops containers but preserves database
+
+   # To restart later with same data:
+   ./ops/start.sh
+   docker exec swarm-manager docker stack deploy -c /app/swarm/stack.yaml mcapp
+   ```
+
+   **Option B: Full cleanup (deletes everything including data)**
+
+   ```bash
+   ./ops/cleanup.sh  # ⚠️ Deletes all volumes and data
    ```
 
 **Manual deployment steps** (if you prefer step-by-step):
@@ -256,6 +295,31 @@ This project uses **Docker-in-Docker (DinD)** to simulate a multi-node Docker Sw
 - **Test organization**: Tests are co-located with their respective services
 - **Automation**: Complete ops scripts for zero-touch deployment
 - **Documentation**: Comprehensive specs and documentation
+
+**🎬 Quick Demo Workflow:**
+
+```bash
+# Complete setup (first time)
+./ops/complete-setup.sh
+
+# ⏱️ Wait for services to be ready (important!)
+./ops/wait-for-api.sh
+
+# Add some data via browser at http://localhost
+
+# Stop without losing data
+./ops/stop.sh
+
+# Resume with same data
+./ops/start.sh
+docker exec swarm-manager docker stack deploy -c /app/swarm/stack.yaml mcapp
+./ops/wait-for-api.sh  # Wait again after redeployment
+
+# Full cleanup when done
+./ops/cleanup.sh
+```
+
+> 💡 **Pro tip**: Always run `./ops/wait-for-api.sh` after deployment or restarts to ensure the API is ready before making requests. This avoids 500 errors during the DNS propagation period.
 
 ## 🛠️ Development
 
@@ -485,7 +549,69 @@ For complete Swarm deployment documentation, see:
 - [docs/EVIDENCE.md](docs/EVIDENCE.md) - Verification evidence
 - [specs/20-target-spec.md](specs/20-target-spec.md) - Architecture specification
 
-## �📝 License
+## � Troubleshooting
+
+### "500 Internal Server Error" on First Request
+
+**Symptom**: `curl http://localhost/api/names` returns 500 error immediately after deployment or database restart.
+
+**Cause**: This is **expected behavior** due to distributed system startup timing:
+1. **PostgreSQL initialization**: Database takes 5-10 seconds to be ready
+2. **DNS propagation**: Docker Swarm overlay network DNS needs 5-10 seconds to propagate service names
+3. **Connection pool**: Flask backend creates connection pool lazily on first request
+
+**Solution**:
+```bash
+# Wait for API to be ready
+./ops/wait-for-api.sh
+
+# Or manually retry after 30 seconds
+sleep 30
+curl http://localhost/api/names
+```
+
+**Why we designed it this way**:
+- **Lazy connection pooling** prevents startup failures if DB isn't ready yet
+- **30-second healthcheck grace period** allows services time to stabilize
+- **Distributed systems trade-off**: Eventual consistency over immediate availability
+- **Real-world scenario**: Production systems also need warm-up time after deployment
+
+### When to Use wait-for-api.sh
+
+Always run `./ops/wait-for-api.sh` after:
+- ✅ Initial deployment: `./ops/complete-setup.sh`
+- ✅ Database restart: `docker service update --force mcapp_db`
+- ✅ Stack redeployment: `docker stack deploy ...`
+- ✅ Service scaling: `docker service scale mcapp_api=2`
+
+### Database Data Not Persisting
+
+**Symptom**: Added names disappear after restart
+
+**Cause**: Used `./ops/cleanup.sh` which deletes volumes with `-v` flag
+
+**Solution**:
+- Use `./ops/stop.sh` to stop without losing data
+- Use `./ops/cleanup.sh` only for fresh start (deletes everything)
+
+### Services Not Starting
+
+```bash
+# Check service status
+docker exec swarm-manager docker service ls
+
+# Check service logs
+docker exec swarm-manager docker service logs mcapp_api
+docker exec swarm-manager docker service logs mcapp_db
+
+# Check if nodes are healthy
+docker exec swarm-manager docker node ls
+
+# Restart services
+docker exec swarm-manager docker service update --force mcapp_api
+```
+
+## ��📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 

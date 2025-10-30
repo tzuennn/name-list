@@ -44,6 +44,9 @@ This deployment uses **Docker-in-Docker (DinD)** to simulate a multi-node Swarm 
 ```bash
 # From project root
 ./ops/complete-setup.sh
+
+# ⏱️ IMPORTANT: Wait for services to be ready
+./ops/wait-for-api.sh
 ```
 
 This will:
@@ -54,11 +57,27 @@ This will:
 4. Build Docker images inside manager container
 5. Deploy the stack
 
+### ⚠️ Important: Startup Time
+
+After deployment, services need **30-60 seconds** to become fully operational:
+
+- **PostgreSQL**: 5-10 seconds to initialize
+- **Overlay Network DNS**: 5-10 seconds to propagate
+- **API Connection Pool**: Established on first request
+
+**Expected behavior**:
+
+- First API requests may return 500 errors
+- This is **normal** in distributed systems
+- Always use `./ops/wait-for-api.sh` to ensure readiness
+
 ### Access the Application
 
 - **Frontend**: http://localhost
 - **API**: http://localhost:8080
 - **Health Check**: http://localhost/healthz
+
+> 💡 **Tip**: If you get 500 errors, wait 30 seconds or run `./ops/wait-for-api.sh`
 
 ## 📋 Manual Deployment
 
