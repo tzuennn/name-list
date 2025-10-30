@@ -1,0 +1,44 @@
+services:
+  manager:
+    image: docker:24-dind
+    container_name: swarm-manager
+    hostname: manager # Add this line
+    privileged: true
+    ports:
+      - "80:80" # Expose web frontend from the manager
+      - "8080:8080" # Expose API for direct testing if needed
+    volumes:
+      # Share the project directory to deploy the stack from within the container
+      - .:/app
+      # Persist swarm state
+      - manager-state:/var/lib/docker
+    networks:
+      - swarm-sim-net
+    environment:
+      - DOCKER_TLS_CERTDIR="" # Disable TLS for easier communication within the sim
+
+  worker:
+    image: docker:24-dind
+    container_name: swarm-worker
+    hostname: worker # Add this line
+    privileged: true
+    depends_on:
+      - manager
+    volumes:
+      # Persist worker state
+      - worker-state:/var/lib/docker
+      # This volume will be used by the postgres container
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - swarm-sim-net
+    environment:
+      - DOCKER_TLS_CERTDIR="" # Disable TLS
+
+volumes:
+  manager-state:
+  worker-state:
+  db-data:
+
+networks:
+  swarm-sim-net:
+    driver: bridge
