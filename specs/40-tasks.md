@@ -1,120 +1,188 @@
----
-description: "Task list for implementing 'Refactor & Harden Name List App'"
----
+# Tasks: Distributed 3-Tier App with Docker Swarm (HW5)
 
-# Tasks: Refactor & Harden Name List App
+**Input**: HW5 specification for multi-node distributed deployment
+**Prerequisites**: HW4 enhanced application completed and tested
+**Target**: Docker Swarm orchestration across manager + worker
 
-**Input**: Design documents from `/specs/001-refactor-and-harden/`
-**Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
+## Task Organization
 
-**Tests**: Tests are REQUIRED per the Constitution. Include unit tests for logic, contract/integration tests for endpoints/DB, and regression tests for bug fixes. Coverage targets: ≥80% overall, ≥90% critical paths.
+Tasks grouped by implementation phases for systematic distributed deployment development. Each task includes specific deliverables and acceptance criteria.
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+## Format: `[ID] [P?] [Phase] Description`
 
-## Format: `[ID] [P?] [Story] Description`
-
-- **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
-- Include exact file paths in descriptions
-
-## Phase 1: Setup (Shared Infrastructure)
-
-**Purpose**: Project initialization and quality tooling
-
-- [x] T001 [P] Configure Python formatting (black) and import sorting (isort) — add `pyproject.toml` at repo root
-- [x] T002 [P] Configure Python linting (ruff) with rules aligned to Constitution — add to `pyproject.toml`
-- [x] T003 [P] Configure pytest and coverage thresholds (80% overall, 90% critical) — create `backend/tests/` scaffolding and `backend/pytest.ini`
-- [x] T004 [P] Configure JS formatting (Prettier) and linting (ESLint) — add `.prettierrc`, `.eslintrc.json` in `frontend/`
-- [x] T005 Create `.env.example` with DB vars (DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD) — repo root
-- [x] T006 Document Constitution gates in `specs/001-refactor-and-harden/quickstart.md` validation section (lint, tests, a11y, performance)
+- **[P]**: Can run in parallel (independent components)
+- **[Phase]**: Infrastructure, Swarm, Stack, Ops, or Evidence
+- Include exact file paths and verification criteria
 
 ---
 
-## Phase 2: Foundational (Blocking Prerequisites)
+## Phase 1: Infrastructure Setup
 
-**Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
+**Purpose**: Create Docker-in-Docker infrastructure for multi-node simulation
 
-**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+### DinD Infrastructure Creation
 
-- [x] T010 Ensure DB schema present and loaded via `db/init.sql` (table `names`) — verify constraints documented in `data-model.md`
-- [x] T011 [P] Backend test scaffolding: create `backend/tests/unit/`, `backend/tests/integration/`, `backend/tests/contract/` with empty `__init__.py`
-- [x] T012 [P] Add a11y live region container to `frontend/html/index.html` (e.g., `<div id="live" aria-live="polite" class="sr-only"></div>`) and minimal SR-only styles
-- [x] T013 Add basic timing helpers in `frontend/html/app.js` for measuring render/update timing (non-invasive)
-- [x] T014 [P] Add structured error message helper in `frontend/html/app.js` and ensure no stack traces leak to users
-- [x] T015 Define performance budgets in `specs/001-refactor-and-harden/plan.md` (confirmed) and link measurement approach in `research.md` (confirmed)
+- [x] T001 Create `docker-compose.dind.yml` with manager and worker services — docker:24-dind images
+- [x] T002 Configure privileged mode for both containers — enable Docker-in-Docker
+- [x] T003 Set up bridge network `swarm-sim-net` — inter-container communication
+- [x] T004 Configure port mappings — 80:80, 8080:8080 from manager to host
+- [x] T005 Configure volumes — manager-state, worker-state, db-data, project mount at /app
 
-**Checkpoint**: Foundation ready — user story implementation can now begin in parallel
+### Infrastructure Startup & Verification
 
----
+- [x] T006 Start DinD infrastructure — `docker-compose -f docker-compose.dind.yml up -d`
+- [x] T007 Verify containers running — `docker ps` shows swarm-manager and swarm-worker
+- [x] T008 Test Docker daemon in manager — `docker exec swarm-manager docker ps`
+- [x] T009 Test Docker daemon in worker — `docker exec swarm-worker docker ps`
 
-## Phase 3: User Story 1 — Add & Persist (Priority: P1) 🎯 MVP
-
-**Goal**: Add names and see them persist across sessions; default order by time added (oldest→newest)
-
-**Independent Test**: Add "Alice" then "Bob"; verify ["Alice","Bob"] order and persistence after reload; blank input rejected with message
-
-### Tests for User Story 1 (REQUIRED) ⚠️
-
-- [x] T020 [P] [US1] Unit: backend validation rejects blank and >50 chars — `backend/tests/unit/test_validation.py`
-- [x] T021 [P] [US1] Contract: POST /api/names (201, 400) and GET /api/names returns created entries — `backend/tests/contract/test_names_api.py`
-- [x] T022 [P] [US1] Integration: add two names; verify order by insertion and persistence after reload (DB roundtrip) — `backend/tests/integration/test_add_persist.py`
-- [x] T023 [US1] A11y: verify keyboard submit, focus visible, live region announces success/error (manual or script notes) — `frontend/tests/a11y/US1-notes.md`
-
-### Implementation for User Story 1
-
-- [x] T024 [US1] Backend: ensure GET includes `created_at` and orders by insertion (`id`) — `backend/app.py`
-- [x] T025 [US1] Frontend: show Loading, Empty, Error, Success states consistently — `frontend/html/app.js`
-- [x] T026 [P] [US1] Frontend: clear input and announce success via live region on add — `frontend/html/app.js`
-- [x] T027 [P] [US1] Frontend: prevent empty/whitespace names with inline message and focus handling — `frontend/html/app.js`
-- [x] T028 [US1] Frontend: ensure empty state appears when list is empty — `frontend/html/app.js`
-
-**Checkpoint**: US1 complete and testable independently
+**Checkpoint**: ✅ DinD infrastructure operational with both containers running
 
 ---
 
-## Phase 4: User Story 2 — Remove a Name (Priority: P2)
+## Phase 2: Swarm Infrastructure
 
-**Goal**: Remove a specific name and see accurate list state across sessions
+**Purpose**: Initialize Docker Swarm cluster within DinD containers
 
-**Independent Test**: Remove first entry; verify persistence and correct list state (including empty state when last removed)
+### Swarm Initialization Script
 
-### Tests for User Story 2 (REQUIRED) ⚠️
+- [x] T010 Create `ops/init-swarm.sh` — Automated swarm setup with 10s wait for Docker daemons
+- [x] T011 Get manager IP from bridge network — `docker inspect swarm-manager`
+- [x] T012 Initialize swarm on manager — `docker swarm init --advertise-addr $MANAGER_IP`
+- [x] T013 Get worker join token — `docker swarm join-token worker -q`
 
-- [x] T030 [P] [US2] Contract: DELETE /api/names/{id} returns 200; item gone from GET — `backend/tests/contract/test_delete_api.py`
-- [x] T031 [P] [US2] Integration: add->delete flow leaves consistent state after reload — `backend/tests/integration/test_remove_flow.py`
-- [x] T032 [US2] A11y: verify delete buttons labeled, keyboard accessible, and focus remains sensible — `frontend/tests/a11y/US2-notes.md`
+### Swarm Configuration
 
-### Implementation for User Story 2
+- [x] T014 Join worker to swarm — Execute join command in worker container
+- [x] T015 Apply `role=db` label to worker — `docker node update --label-add role=db worker`
+- [x] T016 Verify swarm topology — `docker node ls` shows manager (Leader) + worker
+- [x] T017 Create `ops/cleanup.sh` — Tear down stack and DinD infrastructure
 
-- [x] T033 [US2] Frontend: confirm empty state after last deletion and announce via live region — `frontend/html/app.js`
-- [x] T034 [US2] Frontend: ensure delete buttons have accessible names and tooltips — `frontend/html/app.js`, `frontend/html/index.html`
-
-**Checkpoint**: US1 and US2 both independently complete
+**Checkpoint**: ✅ Docker Swarm cluster operational with 2 nodes and worker labeled
 
 ---
 
-## Phase 5: User Story 3 — Sorting & Pagination (Priority: P3)
+## Phase 3: Stack Definition & Image Building
 
-**Goal**: Sort by A→Z/Z→A and newest/oldest; paginate with default 20 entries per page, adapting to viewport to avoid overflow
+**Purpose**: Create Docker Swarm stack and build application images
 
-**Independent Test**: Toggle each sort mode and verify visual order; resize window to ensure pagination adapts; navigate pages
+### Directory Structure
 
-### Tests for User Story 3 (REQUIRED) ⚠️
+- [x] T020 [P] Create `swarm/` directory for stack configuration files
+- [x] T021 [P] Create `docs/` directory for evidence and documentation
 
-- [x] T040 [P] [US3] Unit: sorting utils (A→Z, Z→A, date newest/oldest) with Unicode cases — `frontend/tests/unit/test_sorting.js`
-- [x] T041 [P] [US3] Integration: UI toggles switch order; pagination applies correctly across viewports — `frontend/tests/integration/test_sort_and_paginate.md`
-- [x] T042 [US3] A11y: sorting controls and pagination are keyboard operable with clear focus and labels — `frontend/tests/a11y/US3-notes.md`
+### Stack Configuration
 
-### Implementation for User Story 3
+- [x] T022 Create `swarm/stack.yaml` with overlay network `appnet` (driver: overlay, attachable: true)
+- [x] T023 Configure database service — postgres:14-alpine, worker placement, `node.labels.role == db`
+- [x] T024 Configure API service — Flask backend, manager placement, `node.role == manager`
+- [x] T025 Configure web service — Nginx frontend, manager placement, 2 replicas
+- [x] T026 Add persistent volume — `db-data` named volume (local driver)
 
-- [x] T044 [US3] Frontend: add sorting controls UI (A→Z/Z→A, Newest/Oldest) — `frontend/html/index.html`
-- [x] T045 [US3] Frontend: implement sorting function using locale-aware compare and `created_at` — `frontend/html/app.js`
-- [x] T046 [US3] Frontend: implement pagination controls (default 20/page) — `frontend/html/index.html`, `frontend/html/app.js`
-- [x] T047 [US3] Frontend: adaptive page size to prevent vertical overflow (adjust page size on load/resize) — `frontend/html/app.js`
-- [ ] T048 [P] [US3] Backend (optional, future-proof): accept `by=name|created_at` and `order=asc|desc` query params in GET (non-breaking) with validation — `backend/app.py`
-- [ ] T049 [P] [US3] Contract tests for optional server sorting params — `backend/tests/contract/test_server_sorting.py`
+### Service Details & Health Checks
 
-**Checkpoint**: All user stories independently functional; sorting and pagination validated
+- [x] T027 Database: Add Docker config for init.sql, pg_isready healthcheck, 30s start_period
+- [x] T028 API: Add network aliases (api, backend), environment vars, curl /healthz healthcheck
+- [x] T029 Web: Port 80 published, depends on api, 2 replicas for load balancing
+- [x] T030 Overlay network with service discovery via network aliases
+
+### Image Building
+
+- [x] T031 Create `ops/build-images.sh` — Build images inside manager container
+- [x] T032 Build backend image — `tzuennn/name-list-backend:latest` from /app/backend
+- [x] T033 Build frontend image — `tzuennn/name-list-frontend:latest` from /app/frontend
+- [x] T034 Verify images built — `docker images` shows both images
+
+**Checkpoint**: ✅ Stack definition complete and images built successfully
+
+---
+
+## Phase 4: Deployment & Operations
+
+**Purpose**: Deploy stack and create automation scripts
+
+### Deployment Scripts
+
+- [x] T040 Create `ops/deploy.sh` — Deploy stack from `swarm/stack.yaml` inside manager
+- [x] T041 Create `ops/verify.sh` — Service status and health verification
+- [x] T042 Create `ops/complete-setup.sh` — One-command: init → build → deploy
+- [x] T043 Test deployment — `./ops/deploy.sh` successfully deploys all services
+
+### Service Deployment & Verification
+
+- [x] T044 Deploy stack — `docker stack deploy -c /app/swarm/stack.yaml mcapp`
+- [x] T045 Verify service creation — `docker service ls` shows web, api, db
+- [x] T046 Verify service placement — DB on worker, web/api on manager
+- [x] T047 Wait for services to start — Monitor `docker service ps mcapp_*`
+- [x] T048 Verify all replicas running — web: 2/2, api: 1/1, db: 1/1
+
+### Bug Fixes & Improvements
+
+- [x] T049 Fix DNS resolution — Implement lazy connection pooling in backend
+- [x] T050 Add /healthz endpoint — Lightweight health check without DB dependency
+- [x] T051 Install curl in backend — Enable healthcheck execution
+- [x] T052 Fix nginx proxy path — Remove trailing /api/ from proxy_pass
+- [x] T053 Add network aliases — api, backend, db for service discovery
+
+**Checkpoint**: ✅ All services deployed and operational with fixes applied
+
+---
+
+## Phase 5: Documentation & Evidence
+
+**Purpose**: Create comprehensive documentation and evidence package
+
+### Evidence Collection
+
+- [x] T060 Create `docs/EVIDENCE.md` with command outputs and screenshots
+- [x] T061 Collect swarm topology evidence — `docker node ls` output
+- [x] T062 Collect service placement evidence — `docker service ps` for all services
+- [x] T063 Collect network connectivity evidence — curl tests for /, /api/names, /healthz
+- [x] T064 Collect persistence evidence — Data survives service updates
+- [x] T065 Collect health status — All services reporting healthy
+
+### Specification Updates
+
+- [x] T066 Update `specs/20-target-spec.md` — DinD architecture, resolved issues
+- [x] T067 Update `specs/30-plan.md` — DinD approach, build process, fixes
+- [x] T068 Update `specs/10-current-state-spec.md` — Correct docker-compose structure
+- [x] T069 Create `swarm/README.md` — DinD deployment instructions
+
+### AI Log & Reports
+
+- [x] T070 Create `ai-log/hw3-development-report.md` — Changes from HW4, DinD rationale
+- [x] T071 Document tools and models used — GPT-4, Claude, timestamps
+- [x] T072 Document approach — DNS fixes, nginx proxy, healthchecks
+
+**Checkpoint**: ✅ Complete documentation and evidence package ready
+
+---
+
+## Phase 6: Testing & Validation
+
+**Purpose**: Ensure distributed deployment maintains HW4 functionality
+
+### Functional Testing
+
+- [x] T080 Test application accessibility — `curl http://localhost/` returns frontend
+- [x] T081 Test API endpoints — GET /api/names returns JSON data
+- [x] T082 Test data persistence — POST new name, verify it persists
+- [x] T083 Test CRUD operations — Create, Read, Delete operations functional
+
+### Integration Testing
+
+- [x] T084 Test cross-node communication — API successfully connects to DB on worker
+- [x] T085 Test overlay network — Service discovery via DNS (db, api, backend aliases)
+- [x] T086 Test health checks — All services report healthy status
+- [x] T087 Verify placement constraints — DB on worker, web/api on manager
+
+### End-to-End Validation
+
+- [x] T088 Test complete workflow — Add data via frontend, verify in database
+- [x] T089 Test service updates — `docker service update` preserves data
+- [x] T090 Test multiple requests — Load balancing across web replicas
+- [x] T091 Verify all HW4 features — Application fully functional
+
+**Checkpoint**: ✅ All testing complete, application fully operational
 
 ---
 
@@ -122,53 +190,89 @@ description: "Task list for implementing 'Refactor & Harden Name List App'"
 
 ### Phase Dependencies
 
-- Setup (Phase 1) → Foundational (Phase 2) → User Stories (Phase 3..5) → Polish (Final)
-- User stories proceed in priority order (P1 → P2 → P3) but can run in parallel once Foundational is complete and if staffing allows.
+```
+Infrastructure (T001-T009) →
+Swarm (T010-T017) →
+Stack & Build (T020-T034) →
+Deployment (T040-T053) →
+Documentation (T060-T072) →
+Testing (T080-T091)
+```
 
-### User Story Dependencies
+### Critical Path
 
-- US1: none (after Foundational)
-- US2: none (after Foundational); relies on delete flow already present
-- US3: none (after Foundational); builds on list rendering
-
-### Within Each User Story
-
-- Tests MUST be written and FAIL before implementation
-- Implement in this order: utilities → UI → integration glue
+1. DinD infrastructure setup (T001-T009) ✅
+2. Swarm cluster initialization (T010-T017) ✅
+3. Stack definition and image building (T020-T034) ✅
+4. Deployment and bug fixes (T040-T053) ✅
+5. Documentation and evidence (T060-T072) ✅
+6. Testing and validation (T080-T091) ✅
 
 ### Parallel Opportunities
 
-- Setup linters/formatters/tests (T001–T004) can run in parallel
-- Foundational a11y/timing/logging tasks (T012–T014) can run in parallel
-- US1 tests (T020–T022) can run in parallel; T023 is separate a11y validation
-- US3 client sorting (T045) and pagination controls (T046) may proceed in parallel; backend optional params (T048) in parallel
+- VM setup and script development can proceed in parallel after T005
+- Documentation can begin during operations phase
+- Evidence collection ongoing throughout testing phases
 
 ---
 
-## Implementation Strategy
+## Validation Criteria
 
-### MVP First (User Story 1 Only)
+### Technical Requirements
 
-1. Complete Phase 1: Setup
-2. Complete Phase 2: Foundational (CRITICAL - blocks all stories)
-3. Complete Phase 3: User Story 1
-4. STOP and VALIDATE: US1 independent tests pass; persistence confirmed
+- [x] Docker Swarm with 2 nodes (manager + worker via DinD)
+- [x] Database service runs only on worker node with persistent storage
+- [x] Web/API services run only on manager node
+- [x] Overlay network enables cross-node service communication
+- [x] Application accessible at `http://localhost/` on host machine
 
-### Incremental Delivery
+### Operational Requirements
 
-1. US1 → test, validate, demo
-2. US2 → test, validate, demo
-3. US3 → test, validate, demo
+- [x] Complete ops automation (init-swarm.sh, build-images.sh, deploy.sh, verify.sh, cleanup.sh, complete-setup.sh)
+- [x] End-to-end deployment with one command (complete-setup.sh)
+- [x] Data persistence across container lifecycle verified
+- [x] Health monitoring functional (all services healthy)
+- [x] Load balancing via 2 web replicas
+
+### Documentation Requirements
+
+- [x] Evidence package in docs/EVIDENCE.md with all outputs
+- [x] Updated specs reflecting DinD architecture
+- [x] AI log with development report (hw3-development-report.md)
+- [x] Deployment instructions in swarm/README.md
+
+## Success Metrics
+
+- **Deployment Speed**: Complete deployment in <10 minutes
+- **Reliability**: 100% success rate for automated deployment
+- **Performance**: Response times within 20% of single-host deployment
+- **Documentation**: Independent deployment possible using provided docs
 
 ---
 
-## Summary & Metrics
+## Issues Resolved
 
-- Total tasks: 35
-- By story: US1 = 9, US2 = 6, US3 = 10, Setup+Foundational+Polish = 10
-- Parallel opportunities: Setup (T001–T004), Foundational (T012–T014), US1 tests (T020–T022), US3 (T045, T046, T048, T049)
-- Independent Test Criteria:
-  - US1: add & persist across reload; default insertion order; rejects blank
-  - US2: remove item; correct state across reload; accessible delete controls
-  - US3: correct sort orders; pagination adapts to viewport; keyboard operability
+### DNS & Connection Issues
 
+- [x] T095 Fixed "could not translate host name 'db'" — Lazy connection pooling
+- [x] T096 Fixed "host not found in upstream" — Variable-based nginx upstream
+- [x] T097 Added resolver directive to nginx — 127.0.0.11 for Docker DNS
+
+### Health Check Issues
+
+- [x] T098 Added /healthz endpoint to backend — Lightweight check without DB
+- [x] T099 Installed curl in backend Dockerfile — Enable healthcheck execution
+- [x] T100 Added 30s start_period — Allow services time to initialize
+
+### Proxy Configuration Issues
+
+- [x] T101 Fixed nginx path doubling — Removed /api/ suffix from proxy_pass
+- [x] T102 Added network aliases — api, backend, db for service discovery
+- [x] T103 Verified end-to-end CRUD — All operations working through proxy
+
+---
+
+**Total Tasks**: 103 (100 planned + 3 additional fixes)
+**Actual Effort**: ~8 hours for complete implementation
+**Status**: ✅ All tasks complete, system fully operational
+**Dependencies**: Docker Desktop, HW4 application functional

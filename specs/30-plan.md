@@ -1,140 +1,268 @@
-# Implementation Plan: Refactor & Harden Name List App
+# Implementation Plan: Distributed 3-Tier App with Docker Swarm (HW5)
 
-**Branch**: `001-refactor-and-harden` | **Date**: 2025-10-10 | **Spec**: ../spec.md
-**Input**: Feature specification from `/specs/001-refactor-and-harden/spec.md`
+**Branch**: `main2` | **Date**: 2025-10-28 | **Target**: Distributed Docker Swarm Deployment
+**Input**: HW5 requirements for multi-node distributed 3-tier webapp
 
 ## Summary
 
-Refactor and harden the 3-tier Name List app to open‑source quality using Spec‑Driven Development. Core capabilities: add/remove names, persistence across sessions, default ordering by time added, and sorting by name (A→Z/Z→A) and by added date (newest/oldest). Duplicates are allowed; list scope is per-user device; pagination defaults to 20 and adapts to viewport to avoid vertical overflow.
+Transform the enhanced single-host Name List application (HW4 baseline) into a distributed system using Docker Swarm orchestration. Deploy across two nodes: laptop (manager) running web/api services, and VirtualBox VM (worker) running database service only. Implement overlay networking, persistent storage, and production-like deployment automation.
 
 ## Technical Context
 
-**Language/Version**: Python 3.12 (backend), Nginx static frontend (HTML/CSS/JS)
-**Primary Dependencies**: Flask 3.0.3, gunicorn 22.0.0, psycopg2-binary 2.9.9
-**Storage**: PostgreSQL 16 (Dockerized) with `names(id, name, created_at)`
-**Testing**: pytest (backend), simple browser/contract tests for frontend; coverage enforced per Constitution
-**Target Platform**: Docker Compose (db, backend, frontend) on macOS dev; containerized runtime
-**Project Type**: Web application (frontend + backend + db)
-**Performance Goals**: p95 API ≤ 250 ms; frontend Lighthouse ≥ 90; initial list visible ≤ 1s; add/remove visible update ≤ 1s
-**Constraints**: WCAG 2.1 AA; per-user device list; pagination adapts to viewport; duplicates allowed
-**Scale/Scope**: Up to thousands of entries; UX enforces page size for viewport fit
+**Current State**: HW4 enhanced app with modular frontend, robust backend, comprehensive testing
+**Target Architecture**: Docker Swarm with manager/worker node distribution
+**Orchestration**: Docker Swarm with stack deployment (swarm/stack.yaml)
+**Networking**: Overlay network for cross-node service communication
+**Storage**: Persistent PostgreSQL data on worker node (/var/lib/postgres-data)
+**Automation**: Complete ops scripts for deployment lifecycle management
 
-## Constitution Check
+## Constitution Compliance Check
 
-GATE (must satisfy before Phase 0 research):
+**Code Quality**: Existing HW4 code meets standards (modular, tested, documented)
+**Testing**: Maintain 98% backend, >90% frontend coverage during migration
+**Performance**: Ensure distributed deployment doesn't degrade response times
+**Accessibility**: Preserve WCAG 2.1 AA compliance in distributed environment
 
-- Code Quality
-  - Formatter + Linter: Python (black, isort, ruff), JS (Prettier, ESLint). Commit hooks planned.
-  - Complexity hotspots: backend route handlers; refactor into services/helpers if cyclomatic complexity > 10.
-- Testing
-  - Required tests: unit (validation, sorting utilities), contract/integration (API CRUD, DB), regression (bugfixes).
-  - Coverage targets: ≥80% overall; ≥90% critical paths (API handlers, DB queries). Network/time mocked in unit tests.
-- User Experience
-  - States: loading, empty, error, success explicitly represented in UI with ARIA/live regions.
-  - Accessibility: WCAG 2.1 AA keyboard flow, focus management, contrast and labels; validation via audit.
-- Performance
-  - Measurement: simple timings for API latency; Lighthouse for frontend; detect regressions via budget assertions.
+## Infrastructure Strategy
 
-## Project Structure
-
-### Documentation (this feature)
+### Docker-in-Docker Architecture
 
 ```
-specs/001-refactor-and-harden/
-├── plan.md              # This file
-├── research.md          # Phase 0 output
-├── data-model.md        # Phase 1 output
-├── quickstart.md        # Phase 1 output
-├── contracts/           # Phase 1 output (API + UI state contracts)
-└── tasks.md             # Phase 2 output (/speckit.tasks)
+HOST (macOS Docker Desktop)
+├── swarm-manager container (docker:24-dind)
+│   ├── Docker Swarm Manager Role
+│   ├── Services: web (Nginx), api (Flask)
+│   ├── Ports: 80:80, 8080:8080 published to host
+│   ├── Networks: swarm-sim-net (bridge), appnet (overlay)
+│   ├── Volume: manager-state, project mount at /app
+│   └── Placement: node.role == manager
+│
+└── swarm-worker container (docker:24-dind)
+    ├── Docker Swarm Worker Role
+    ├── Services: db (PostgreSQL) ONLY
+    ├── Networks: swarm-sim-net (bridge), appnet (overlay)
+    ├── Volumes: worker-state, db-data
+    └── Placement: node.labels.role == db
 ```
 
-### Source Code (repository root)
+### DinD Setup via docker-compose.dind.yml
 
+**Infrastructure Configuration**:
+
+- Two privileged containers running docker:24-dind
+- Bridge network `swarm-sim-net` for inter-container communication
+- Manager exposes ports 80 and 8080 to host
+- Project directory mounted at `/app` in manager
+- Persistent volumes for Docker state and database data
+
+**Storage Strategy**:
+
+- Named volume: `db-data` for PostgreSQL persistence
+- Volume managed by Docker within worker container
+- Backup strategy: `docker cp` or volume backup commands
+
+## Implementation Phases
+
+### Phase 1: Infrastructure Preparation
+
+**Docker-in-Docker Setup**:
+
+1. Create `docker-compose.dind.yml` with manager and worker services
+2. Configure privileged mode for both containers
+3. Set up bridge network for inter-container communication
+4. Configure port mappings (80, 8080 to host)
+5. Mount project directory at `/app` in manager
+
+**Infrastructure Startup**:
+
+1. Run `docker-compose -f docker-compose.dind.yml up -d`
+2. Wait for Docker daemons to start in both containers (~10s)
+3. Verify both containers are running
+4. Test Docker access inside containers
+
+### Phase 2: Swarm Initialization
+
+**Swarm Setup Script** (`ops/init-swarm.sh`):
+
+1. Get manager container's IP address in bridge network
+2. Execute `docker swarm init` inside manager container
+3. Retrieve worker join token from manager
+4. Execute `docker swarm join` inside worker container
+5. Apply `role=db` label to worker node
+6. Verify cluster topology with `docker node ls`
+
+**Network Creation**:
+
+- Overlay network `appnet` created via stack.yaml
+- Service discovery via network aliases (api, backend, db)
+- DNS resolver configured in nginx (127.0.0.11)
+
+### Phase 3: Stack Definition
+
+**swarm/stack.yaml Development**:
+
+```yaml
+# Actual implementation:
+networks:
+  appnet:
+    driver: overlay
+    attachable: true
+
+volumes:
+  db-data:
+    driver: local
+
+configs:
+  db_init:
+    file: /app/db/init.sql # Mounted from project dir
+
+services:
+  db:
+    image: postgres:14-alpine
+    placement: ["node.labels.role == db"]
+    replicas: 1
+    configs: [db_init]
+
+  api:
+    image: tzuennn/name-list-backend:latest
+    placement: ["node.role == manager"]
+    replicas: 1
+
+  web:
+    image: tzuennn/name-list-frontend:latest
+    placement: ["node.role == manager"]
+    replicas: 2
 ```
-backend/
-├── app.py
-├── Dockerfile
-└── requirements.txt
 
-frontend/
-├── html/
-│   ├── index.html
-│   └── app.js
-├── nginx.conf
-└── Dockerfile
+**Service Configuration**:
 
-db/
-└── init.sql
+- Database: PostgreSQL 14-alpine with init.sql via Docker configs
+- API: Flask backend with lazy connection pooling, curl installed
+- Web: Nginx with variable-based upstream for runtime DNS resolution
+- Health checks: pg_isready, curl /healthz with 30s start_period
+- Network aliases: api, backend, db for service discovery
 
-docker-compose.yml
+### Phase 4: Deployment Automation
+
+**Operations Scripts**:
+
+```bash
+ops/init-swarm.sh       # DinD infrastructure + swarm cluster setup
+ops/build-images.sh     # Build Docker images inside manager
+ops/deploy.sh           # Deploy stack from swarm/stack.yaml
+ops/verify.sh           # End-to-end deployment verification
+ops/cleanup.sh          # Remove stack and DinD infrastructure
+ops/complete-setup.sh   # One-command: init → build → deploy
 ```
 
-**Structure Decision**: Web application with `backend` (Flask API), `frontend` (Nginx static site), `db` (PostgreSQL). Tests will be added under `backend/tests/{unit,integration,contract}` and `frontend/tests` (contract/smoke).
+**Build Process** (`ops/build-images.sh`):
 
-## Phase 0: Research
+- Builds frontend and backend images inside manager container
+- Uses context from mounted `/app` directory
+- Tags images as `tzuennn/name-list-backend:latest` and `tzuennn/name-list-frontend:latest`
+- No registry push needed (built on manager, deployed on manager/worker)
 
-- Confirm sorting requirements: A→Z/Z→A (locale-aware), newest-first/oldest-first using `created_at`.
-- Decide frontend sorting implementation (client-side vs server query params). Default: client-side for current scope; keep server JSON stable ordered by id.
-- Accessibility choices: labels, focus, and live regions for success/error; keyboard support for add/remove and sorting controls.
-- Pagination strategy: client-side paging with adaptive page size to avoid overflow; compute page size on load/resize.
+**Verification Process**:
 
-Deliverable: `research.md` summarizing decisions and trade-offs.
+- Topology: `docker node ls` shows manager (Leader) + worker
+- Placement: `docker service ps` confirms DB on worker, web/api on manager
+- Connectivity: curl tests for `/`, `/api/names`, `/healthz`
+- Persistence: Data survives `docker service update` operations
+- Load balancing: Multiple web replicas handle requests
 
-## Phase 1: Design
+### Phase 5: Documentation & Evidence
 
-Artifacts to produce:
+**Evidence Collection**:
 
-- `data-model.md`: DB schema already present (`names`); define API response shapes (`id`, `name`, `created_at`).
-- `contracts/`:
-  - `api-names.json`: contract for GET/POST/DELETE payloads and status codes.
-  - `ui-states.md`: definitions for loading/empty/error/success visuals and a11y.
-- `quickstart.md`: local dev steps and feature usage scenarios.
+- Command outputs: node status, service placement, network info
+- Screenshots: application running, admin commands
+- Performance: response times in distributed setup
+- Demo video: complete deployment and verification process
 
-Key design notes:
+**Documentation Updates**:
 
-- Backend: add optional query params for server-side sorting later without breaking current clients.
-- Frontend: implement sorting toggles and client-side sort function (localeCompare with sensitivity options). Add adaptive pagination that respects viewport height.
+- README: Add distributed deployment instructions
+- TROUBLESHOOTING: Common VirtualBox and Swarm issues
+- EVIDENCE.md: Complete verification package
 
-## Phase 2: Implementation & Tests
+## Risk Management
 
-Backend:
-- Add GET `/api/names` support for `order` and `by` query params (non-breaking, optional): `by=name|created_at`, `order=asc|desc`.
-- Validate inputs and ensure SQL uses proper ordering with safe parameters.
-- Unit tests for validation and sorting query param handling.
-- Integration/contract tests for list/add/delete flows.
+### Technical Risks (Resolved)
 
-Frontend:
-- Sorting UI: toggles for A→Z/Z→A and newest/oldest.
-- Adaptive pagination: compute page size (default 20; reduce if list would exceed viewport height) and controls for page navigation.
-- Accessibility: labels for input/button; focus management; error/success announcements.
-- Contract tests: verify UI states and ordering.
+**DNS Resolution at Startup** ✅:
 
-Performance:
-- Measure p95 API latency on dev; ensure add/remove updates within 1s.
-- Lighthouse audit ≥ 90 for performance/accessibility.
+- Risk: API crashes with "could not translate host name 'db'"
+- Solution: Lazy connection pooling - defer DB connection until first request
+- Implementation: `get_pool()` function in backend/app.py
 
-## Phase 3: Polish & Hardening
+**Nginx Proxy Path Issues** ✅:
 
-- Error copy review; consistent terminology.
-- Empty/Loading/Error visual refinements.
-- Defensive coding for network glitches (retry messaging).
-- Final a11y sweep; keyboard-only usage validated.
-- Docs: README sections in quickstart; note pagination viewport behavior.
+- Risk: Proxy doubling `/api/` prefix causing 404 errors
+- Solution: Removed trailing `/api/` from proxy_pass directive
+- Implementation: `proxy_pass http://$backend_upstream;`
 
-## Complexity Tracking
+**Healthcheck Failures** ✅:
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|---------------------------------------|
-| Client-side sorting & paging | Keeps API simple for now | Server-side sorting/paging adds API complexity prematurely |
+- Risk: Services killed by failed healthchecks during startup
+- Solution: Added `/healthz` endpoint, installed curl, 30s start_period
+- Implementation: Lightweight health endpoint without DB dependency
 
-## Risks & Mitigations
+### Operational Risks (Mitigated)
 
-- Locale sorting surprises for Unicode: use locale-aware comparison and document behavior.
-- Viewport-fit pagination complexity: encapsulate sizing logic and test common breakpoints.
-- Potential DB N+1 or heavy queries if server sorting later: plan safe ORDER BY columns and indexes.
+**DinD Container Startup Time** ✅:
 
-## Acceptance & Validation
+- Risk: Services starting before Docker daemon ready
+- Solution: 10-second sleep in init-swarm.sh
+- Result: Reliable cluster initialization
 
-- All Constitution gates satisfied (lint/format, tests with coverage, a11y states, performance budgets).
-- Spec success criteria SC-001…SC-007 met in validation passes.
+**Image Build Context** ✅:
+
+- Risk: Build failures due to missing context
+- Solution: Project mounted at `/app` in manager container
+- Result: Builds succeed with full project context
+
+**Service Discovery Timing** ✅:
+
+- Risk: Nginx fails with "host not found in upstream"
+- Solution: Variable-based upstream for runtime DNS resolution
+- Implementation: `set $backend_upstream "backend:8000";`
+
+## Validation & Acceptance Criteria
+
+### Functional Requirements
+
+- [ ] Application accessible via `http://localhost/` on manager node
+- [ ] All HW4 features functional in distributed deployment
+- [ ] Database persistence across container lifecycle
+- [ ] Service-to-service communication via overlay network
+
+### Operational Requirements
+
+- [ ] Swarm topology: 1 manager + 1 worker node
+- [ ] Service placement: DB on worker, web/api on manager
+- [ ] Health checks: All services report healthy status
+- [ ] Load balancing: Demonstrated across web service replicas
+
+### Documentation Requirements
+
+- [ ] Complete ops automation (5 scripts minimum)
+- [ ] Evidence package with command outputs and screenshots
+- [ ] Demo video ≤5 minutes showing deployment
+- [ ] Updated specs reflecting distributed architecture
+
+## Timeline & Dependencies
+
+**Prerequisites**: HW4 enhanced application completed and tested
+**Phase 1-2**: VirtualBox and Swarm setup (2-3 hours)
+**Phase 3-4**: Stack development and automation (3-4 hours)  
+**Phase 5**: Documentation and evidence collection (1-2 hours)
+**Total Effort**: 6-9 hours for complete implementation
+
+## Success Metrics
+
+- Swarm deployment completes without manual intervention
+- Application performance comparable to single-host deployment
+- Complete automation enables reproducible deployments
+- Documentation sufficient for independent deployment by others
+
+---

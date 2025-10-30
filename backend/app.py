@@ -14,18 +14,25 @@ if not all([DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD]):
 
 app = Flask(__name__)
 
-pool = SimpleConnectionPool(
-    minconn=1,
-    maxconn=10,
-    host=DB_HOST,
-    port=DB_PORT,
-    dbname=DB_NAME,
-    user=DB_USER,
-    password=DB_PASSWORD,
-)
+pool = None
+
+def get_pool():
+    """Lazy initialization of database connection pool"""
+    global pool
+    if pool is None:
+        pool = SimpleConnectionPool(
+            minconn=1,
+            maxconn=10,
+            host=DB_HOST,
+            port=DB_PORT,
+            dbname=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+        )
+    return pool
 
 def query(sql, params=None, fetch=False):
-    conn = pool.getconn()
+    conn = get_pool().getconn()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(sql, params or ())
@@ -35,7 +42,12 @@ def query(sql, params=None, fetch=False):
                 return rows
             conn.commit()
     finally:
-        pool.putconn(conn)
+        get_pool().putconn(conn)
+
+@app.get("/healthz")
+def healthz():
+    """Simple health check without DB dependency for container health checks"""
+    return {"status": "ok"}
 
 @app.get("/api/health")
 def health():

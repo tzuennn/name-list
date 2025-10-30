@@ -1,0 +1,93 @@
+version: "3.8"
+
+networks:
+  appnet:
+    driver: overlay
+    attachable: true
+
+volumes:
+  db-data:
+    driver: local
+
+configs:
+  db_init:
+    file: /app/db/init.sql
+
+services:
+  web:
+    image: tzuennn/name-list-frontend:latest
+    ports:
+      - "80:80"
+    networks:
+      appnet:
+        aliases:
+          - web
+    depends_on:
+      - api
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == manager
+
+  api:
+    image: tzuennn/name-list-backend:latest
+    ports:
+      - "8080:8000"
+    networks:
+      appnet:
+        aliases:
+          - api
+          - backend
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=mydatabase
+      - DB_USER=user
+      - DB_PASSWORD=password
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  db:
+    image: postgres:14-alpine
+    networks:
+      appnet:
+        aliases:
+          - db
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=mydatabase
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    configs:
+      - source: db_init
+        target: /docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d mydatabase"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.role == db
+      restart_policy:
+        condition: on-failure
