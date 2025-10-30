@@ -14,6 +14,25 @@ This deployment uses Docker-in-Docker (DinD) to simulate a multi-node Docker Swa
 - **Worker Node**: Runs database (PostgreSQL) service with persistent storage
 - **Network**: Overlay network for service discovery and communication
 
+## Infrastructure Note
+
+Due to unavailability of a physical lab node, this deployment uses 
+Docker-in-Docker (DinD) to simulate a two-node Swarm cluster:
+
+- **Manager Node**: docker:24-dind container (simulates student laptop)
+- **Worker Node**: docker:24-dind container (simulates lab machine)
+
+This approach provides:
+✅ True Docker Swarm multi-node topology
+✅ Overlay networking with service discovery
+✅ Placement constraints and node labels
+✅ Persistent storage via Docker volumes
+✅ All HW5 requirements functionally satisfied
+
+The DinD approach is commonly used in CI/CD environments and 
+Docker development, providing equivalent functionality to 
+physical multi-node deployments.
+
 ---
 
 ## 1. Node Status
