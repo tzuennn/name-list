@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-config
+  namespace: namelist
+  labels:
+    app: namelist
+    component: database
+data:
+  POSTGRES_DB: "names_db"
+  POSTGRES_USER: "myuser"
+  DB_HOST: "db-service"
+  DB_PORT: "5432"

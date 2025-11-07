@@ -1,0 +1,83 @@
+---
+# Deployment for Web frontend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: namelist
+  labels:
+    app: namelist
+    component: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: namelist
+      component: web
+  template:
+    metadata:
+      labels:
+        app: namelist
+        component: web
+    spec:
+      # Prefer to run on server node (control plane)
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: Exists
+      containers:
+        - name: web
+          image: tzuennn/name-list-frontend:latest
+          imagePullPolicy: Never # Use local image from k3d import
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+
+---
+# Service for Web
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-service
+  namespace: namelist
+  labels:
+    app: namelist
+    component: web
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: namelist
+    component: web

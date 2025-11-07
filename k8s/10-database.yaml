@@ -1,0 +1,164 @@
+---
+# PersistentVolumeClaim for database data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: db-data
+  namespace: namelist
+  labels:
+    app: namelist
+    component: database
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: local-path # K3s default storage class
+
+---
+# StatefulSet for PostgreSQL database
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: namelist
+  labels:
+    app: namelist
+    component: database
+spec:
+  serviceName: db-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: namelist
+      component: database
+  template:
+    metadata:
+      labels:
+        app: namelist
+        component: database
+    spec:
+      # Force database to run on agent node
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role
+                    operator: In
+                    values:
+                      - database
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgres
+              protocol: TCP
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: db-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: db-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+            - name: init-script
+              mountPath: /docker-entrypoint-initdb.d
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - myuser
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - myuser
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: db-data
+        - name: init-script
+          configMap:
+            name: db-init-script
+
+---
+# Service for database
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-service
+  namespace: namelist
+  labels:
+    app: namelist
+    component: database
+spec:
+  type: ClusterIP
+  clusterIP: None # Headless service for StatefulSet
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgres
+  selector:
+    app: namelist
+    component: database
+
+---
+# ConfigMap for database initialization script
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-init-script
+  namespace: namelist
+  labels:
+    app: namelist
+    component: database
+data:
+  init.sql: |
+    -- Initialize names table
+    CREATE TABLE IF NOT EXISTS names (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Insert sample data
+    INSERT INTO names (name) VALUES 
+        ('Alice'),
+        ('Bob'),
+        ('Charlie')
+    ON CONFLICT DO NOTHING;

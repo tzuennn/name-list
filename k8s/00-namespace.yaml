@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: namelist
+  labels:
+    app: namelist
+    environment: production
