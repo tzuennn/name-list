@@ -4,10 +4,11 @@
 
 A modern, accessible 3-tier web application for managing a persistent list of names. Built with Flask (Python), PostgreSQL, and vanilla JavaScript with a focus on accessibility, performance, and maintainability.
 
-**Supports two deployment modes:**
+**Supports three deployment modes:**
 
 - 🐳 **Single-host development** (Docker Compose)
 - 🔄 **Distributed production** (Docker Swarm with multi-node deployment)
+- ☸️ **Kubernetes orchestration** (K3s with multi-node cluster)
 
 ## ✨ Features
 
@@ -152,11 +153,133 @@ A modern, accessible 3-tier web application for managing a persistent list of na
 
 For detailed Swarm deployment documentation, see [swarm/README.md](swarm/README.md).
 
+### Option 3: Kubernetes Deployment (K3s)
+
+**For production-grade Kubernetes orchestration:**
+
+K3s provides a lightweight, certified Kubernetes distribution with full Kubernetes API compatibility. This deployment uses k3d to run K3s in Docker containers for easy local development and testing.
+
+1. **Prerequisites**
+
+   ```bash
+   # Install k3d (if not already installed)
+   brew install k3d  # macOS
+   # Or: curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
+   # Verify installation
+   k3d version
+   kubectl version --client
+   ```
+
+2. **Create K3s multi-node cluster**
+
+   ```bash
+   # Create cluster with 1 server + 1 agent node
+   k3d cluster create namelist \
+     --servers 1 \
+     --agents 1 \
+     --port "80:80@loadbalancer" \
+     --port "8080:8080@loadbalancer"
+
+   # Verify cluster
+   kubectl get nodes
+
+   # Label agent node for database placement
+   kubectl label node k3d-namelist-agent-0 node-role=database
+   ```
+
+3. **Build and deploy application**
+
+   ```bash
+   # Build images and import into k3d cluster
+   ./ops/k3s-build-images.sh
+
+   # Deploy to Kubernetes
+   ./ops/k3s-deploy.sh
+
+   # Verify deployment
+   ./ops/k3s-verify.sh
+   ```
+
+4. **Access the application**
+
+   - Frontend: http://localhost
+   - Backend API: http://localhost/api/names
+   - Health check: http://localhost/healthz
+
+5. **Monitor and manage**
+
+   ```bash
+   # Check pod status
+   kubectl get pods -n namelist -o wide
+
+   # View logs
+   kubectl logs -f deployment/api -n namelist
+   kubectl logs -f deployment/web -n namelist
+
+   # Scale services
+   kubectl scale deployment api --replicas=3 -n namelist
+
+   # Check resource usage
+   kubectl top nodes
+   kubectl top pods -n namelist
+   ```
+
+6. **Cleanup options**
+
+   **Option A: Stop cluster (keep for later)**
+
+   ```bash
+   k3d cluster stop namelist
+
+   # Restart later
+   k3d cluster start namelist
+   ```
+
+   **Option B: Full cleanup (deletes everything)**
+
+   ```bash
+   ./ops/k3s-cleanup.sh
+   ```
+
+**K3s Architecture:**
+
+```
+┌────────────────────────────────────────────────────┐
+│ k3d Load Balancer (localhost:80, :8080)           │
+└──────────────┬─────────────────────────────────────┘
+               │
+       ┌───────┴────────┐
+       │                │
+┌──────▼──────┐  ┌──────▼──────┐
+│ Server Node │  │ Agent Node  │
+│ (Control +  │  │ (Worker)    │
+│  Worker)    │  │             │
+├─────────────┤  ├─────────────┤
+│ • API (x2)  │  │ • Database  │
+│ • Web (x2)  │  │   (x1)      │
+│ • Traefik   │  │ • PVC (1Gi) │
+└─────────────┘  └─────────────┘
+```
+
+**K3s Key Features:**
+
+- ✅ **Multi-node cluster**: Dedicated server and agent nodes
+- ✅ **Node affinity**: Database isolated on agent node
+- ✅ **Persistent storage**: Data survives pod restarts
+- ✅ **Horizontal scaling**: Easy replica management
+- ✅ **Health monitoring**: Liveness and readiness probes
+- ✅ **Service discovery**: Built-in DNS and service mesh
+- ✅ **Ingress routing**: Traefik for HTTP routing
+- ✅ **Self-healing**: Automatic pod recreation
+
+For complete K3s deployment documentation, see [K3S_DEPLOYMENT.md](K3S_DEPLOYMENT.md).
+
 ## 🏗️ Architecture
 
 ### Deployment Architecture
 
-This project supports **two deployment modes**:
+This project supports **three deployment modes**:
 
 #### 1. Single-Host Development (docker-compose.yml)
 
@@ -215,6 +338,40 @@ This project uses **Docker-in-Docker (DinD)** to simulate a multi-node Docker Sw
 - **Health Monitoring**: All services have healthchecks with 30s start period
 - **Data Persistence**: Named volume survives container recreation
 
+#### 3. Kubernetes Production (K3s with k3d)
+
+```
+┌──────────────────────────────────────────────────────┐
+│ Host (macOS Docker Desktop)                          │
+│  ┌────────────────────────────────────────────┐     │
+│  │ k3d-namelist-server-0                      │     │
+│  │ • K3s Control Plane + Worker               │     │
+│  │ • Pods: api (x2), web (x2)                 │     │
+│  │ • Traefik Ingress Controller               │     │
+│  │ • Ports: 80:80, 8080:8080 → host          │     │
+│  └────────────────────────────────────────────┘     │
+│               ↕ (k3d-namelist network)               │
+│  ┌────────────────────────────────────────────┐     │
+│  │ k3d-namelist-agent-0                       │     │
+│  │ • K3s Worker Node                          │     │
+│  │ • Pods: db (x1)                            │     │
+│  │ • PersistentVolume: db-data (1Gi)          │     │
+│  │ • Node Label: node-role=database           │     │
+│  └────────────────────────────────────────────┘     │
+└──────────────────────────────────────────────────────┘
+```
+
+**Key Features of K3s Deployment:**
+
+- **Node Affinity**: Database guaranteed on agent node via node selector
+- **StatefulSet**: PostgreSQL with persistent volume claims
+- **Deployments**: Stateless API and web services with multiple replicas
+- **Ingress**: Traefik routes `/api/*` to API, `/` to web
+- **Health Probes**: Liveness and readiness checks on all pods
+- **Service Discovery**: kube-dns for internal service resolution
+- **Horizontal Scaling**: `kubectl scale` for dynamic replica adjustment
+- **Self-Healing**: Automatic pod restart on failure
+
 ### Component Architecture
 
 #### Frontend (Modular JavaScript)
@@ -262,6 +419,14 @@ This project uses **Docker-in-Docker (DinD)** to simulate a multi-node Docker Sw
 │   └── Dockerfile
 ├── db/
 │   └── init.sql              # Database schema
+├── k8s/                        # Kubernetes manifests
+│   ├── 00-namespace.yaml     # Namespace definition
+│   ├── 01-configmap.yaml     # Configuration data
+│   ├── 02-secrets.yaml       # Sensitive data
+│   ├── 10-database.yaml      # PostgreSQL StatefulSet
+│   ├── 20-api.yaml           # API Deployment
+│   ├── 30-web.yaml           # Web Deployment
+│   └── 40-ingress.yaml       # Ingress routing
 ├── swarm/                      # Docker Swarm deployment
 │   ├── stack.yaml            # Swarm stack definition
 │   └── README.md             # Swarm deployment guide
@@ -271,7 +436,11 @@ This project uses **Docker-in-Docker (DinD)** to simulate a multi-node Docker Sw
 │   ├── deploy.sh             # Deploy stack
 │   ├── verify.sh             # Verify deployment
 │   ├── cleanup.sh            # Tear down infrastructure
-│   └── complete-setup.sh     # One-command deployment
+│   ├── complete-setup.sh     # One-command deployment
+│   ├── k3s-build-images.sh   # Build and import K3s images
+│   ├── k3s-deploy.sh         # Deploy to K3s
+│   ├── k3s-verify.sh         # Verify K3s deployment
+│   └── k3s-cleanup.sh        # Clean up K3s resources
 ├── docs/
 │   └── EVIDENCE.md           # Deployment verification evidence
 ├── specs/                      # Project specifications
@@ -279,11 +448,17 @@ This project uses **Docker-in-Docker (DinD)** to simulate a multi-node Docker Sw
 │   ├── 20-target-spec.md
 │   ├── 30-plan.md
 │   ├── 40-tasks.md
-│   └── 50-traceability.md
+│   ├── 50-traceability.md
+│   └── k3s-migration/        # K3s migration specs
+│       ├── 00-k3s-migration-overview.md
+│       ├── K3D-IMPLEMENTATION-PLAN.md
+│       └── README.md
 ├── ai-log/                     # Development logs
 │   └── hw3-development-report.md
 ├── docker-compose.yml          # Single-host development
 ├── docker-compose.dind.yml     # DinD infrastructure
+├── K3S_DEPLOYMENT.md           # K3s deployment guide
+├── K3S_DEMO_SCRIPT.md          # K3s demo script
 └── README.md                   # This file
 ```
 
@@ -291,12 +466,15 @@ This project uses **Docker-in-Docker (DinD)** to simulate a multi-node Docker Sw
 
 - **Clear separation**: Each tier has its own directory and concerns
 - **Container-ready**: Each service has its own Dockerfile
-- **Multi-deployment**: Supports both single-host (Compose) and distributed (Swarm)
+- **Multi-deployment**: Supports single-host (Compose), distributed (Swarm), and Kubernetes (K3s)
 - **Test organization**: Tests are co-located with their respective services
 - **Automation**: Complete ops scripts for zero-touch deployment
 - **Documentation**: Comprehensive specs and documentation
+- **K8s-native**: Full Kubernetes manifests with best practices
 
-**🎬 Quick Demo Workflow:**
+**🎬 Quick Demo Workflows:**
+
+**Docker Swarm:**
 
 ```bash
 # Complete setup (first time)
@@ -317,6 +495,29 @@ docker exec swarm-manager docker stack deploy -c /app/swarm/stack.yaml mcapp
 
 # Full cleanup when done
 ./ops/cleanup.sh
+```
+
+**K3s (Kubernetes):**
+
+```bash
+# Create cluster
+k3d cluster create namelist --servers 1 --agents 1 \
+  --port "80:80@loadbalancer" --port "8080:8080@loadbalancer"
+
+# Label agent node
+kubectl label node k3d-namelist-agent-0 node-role=database
+
+# Build and deploy
+./ops/k3s-build-images.sh
+./ops/k3s-deploy.sh
+
+# Access at http://localhost
+
+# Scale services
+kubectl scale deployment api --replicas=3 -n namelist
+
+# Cleanup
+./ops/k3s-cleanup.sh
 ```
 
 > 💡 **Pro tip**: Always run `./ops/wait-for-api.sh` after deployment or restarts to ensure the API is ready before making requests. This avoids 500 errors during the DNS propagation period.
@@ -385,6 +586,39 @@ docker exec swarm-manager docker service update --force mcapp_api
 docker exec swarm-manager docker service logs mcapp_api
 docker exec swarm-manager docker service logs mcapp_web
 docker exec swarm-manager docker service logs mcapp_db
+```
+
+**☸️ K3s Development (Testing Kubernetes deployment)**
+
+For testing Kubernetes orchestration locally:
+
+```bash
+# Create cluster
+k3d cluster create namelist --servers 1 --agents 1 \
+  --port "80:80@loadbalancer" --port "8080:8080@loadbalancer"
+
+# Label agent node
+kubectl label node k3d-namelist-agent-0 node-role=database
+
+# Build and deploy
+./ops/k3s-build-images.sh
+./ops/k3s-deploy.sh
+
+# Make changes to code, then rebuild and update
+docker build -t tzuennn/name-list-backend:latest ./backend
+k3d image import tzuennn/name-list-backend:latest -c namelist
+kubectl rollout restart deployment/api -n namelist
+
+# Check logs
+kubectl logs -f deployment/api -n namelist
+kubectl logs -f deployment/web -n namelist
+kubectl logs db-0 -n namelist
+
+# Scale services
+kubectl scale deployment api --replicas=3 -n namelist
+
+# Check status
+kubectl get pods -n namelist -o wide
 ```
 
 **💻 Native Development (Alternative)**
@@ -549,7 +783,33 @@ For complete Swarm deployment documentation, see:
 - [docs/EVIDENCE.md](docs/EVIDENCE.md) - Verification evidence
 - [specs/20-target-spec.md](specs/20-target-spec.md) - Architecture specification
 
-## � Troubleshooting
+## 🔧 Troubleshooting
+
+### Common Issues Across All Deployments
+
+#### Port Already in Use
+
+```bash
+# Check what's using port 80 or 8080
+lsof -i :80
+lsof -i :8080
+
+# Kill the process or stop conflicting service
+```
+
+### Docker Compose Issues
+
+#### Container Not Starting
+
+```bash
+# Check logs
+docker-compose logs [service-name]
+
+# Rebuild containers
+docker-compose up --build
+```
+
+### Docker Swarm Issues
 
 ### "500 Internal Server Error" on First Request
 
@@ -594,7 +854,7 @@ Always run `./ops/wait-for-api.sh` after:
 - Use `./ops/stop.sh` to stop without losing data
 - Use `./ops/cleanup.sh` only for fresh start (deletes everything)
 
-### Services Not Starting
+### Swarm Services Not Starting
 
 ```bash
 # Check service status
@@ -609,6 +869,85 @@ docker exec swarm-manager docker node ls
 
 # Restart services
 docker exec swarm-manager docker service update --force mcapp_api
+```
+
+### K3s Issues
+
+#### Pods Not Starting
+
+```bash
+# Check pod status
+kubectl get pods -n namelist
+
+# Describe pod to see events
+kubectl describe pod <pod-name> -n namelist
+
+# Check logs
+kubectl logs <pod-name> -n namelist
+
+# Check recent events
+kubectl get events -n namelist --sort-by='.lastTimestamp'
+```
+
+#### Image Pull Errors
+
+```bash
+# Verify images are imported
+kubectl describe pod <pod-name> -n namelist | grep Image
+
+# Re-import images
+./ops/k3s-build-images.sh
+
+# Or manually
+k3d image import tzuennn/name-list-backend:latest -c namelist
+k3d image import tzuennn/name-list-frontend:latest -c namelist
+```
+
+#### Database Connection Issues
+
+```bash
+# Check database pod
+kubectl get pod db-0 -n namelist
+
+# Check database logs
+kubectl logs db-0 -n namelist
+
+# Restart API to reconnect
+kubectl rollout restart deployment/api -n namelist
+
+# Test connection from API pod
+kubectl exec -it deployment/api -n namelist -- sh
+# Inside pod: ping db-service
+```
+
+#### Ingress Not Working
+
+```bash
+# Check ingress
+kubectl get ingress -n namelist
+kubectl describe ingress namelist-ingress -n namelist
+
+# Check Traefik logs
+kubectl logs -n kube-system -l app.kubernetes.io/name=traefik
+
+# Verify service endpoints
+kubectl get endpoints -n namelist
+```
+
+#### Cluster Issues
+
+```bash
+# Check cluster health
+kubectl cluster-info
+kubectl get nodes
+
+# Restart cluster
+k3d cluster stop namelist
+k3d cluster start namelist
+
+# Delete and recreate
+k3d cluster delete namelist
+# Then follow deployment steps again
 ```
 
 ## ��📝 License

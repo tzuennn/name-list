@@ -49,7 +49,7 @@ kubectl get nodes --show-labels
 ```
 k8s/
 ├── 00-namespace.yaml          # Namespace definition
-├── 01-configmap.yaml          # Configuration data  
+├── 01-configmap.yaml          # Configuration data
 ├── 02-secrets.yaml            # Sensitive data
 ├── 10-database.yaml           # StatefulSet + PVC + Service
 ├── 20-api.yaml                # Deployment + Service
@@ -60,24 +60,28 @@ k8s/
 ### Key Manifest Details
 
 **Database** (10-database.yaml):
+
 - StatefulSet with 1 replica
 - PersistentVolumeClaim for data
 - Node affinity to run on agent node only
 - Health probes for readiness/liveness
 
 **API** (20-api.yaml):
+
 - Deployment with 2 replicas
 - Env vars from ConfigMap/Secret
 - Health probes
 - Node affinity to run on server node
 
 **Web** (30-web.yaml):
-- Deployment with 2 replicas  
+
+- Deployment with 2 replicas
 - Nginx configuration
 - Health probes
 - Node affinity to run on server node
 
 **Ingress** (40-ingress.yaml):
+
 - Routes /api → api service
 - Routes /healthz → api service
 - Routes / → web service
@@ -90,6 +94,7 @@ k8s/
 ### Build Images Script
 
 **ops/k3s-build-images.sh**:
+
 ```bash
 #!/bin/bash
 set -e
@@ -112,6 +117,7 @@ echo "✅ Images built and imported"
 ### Deploy Script
 
 **ops/k3s-deploy.sh**:
+
 ```bash
 #!/bin/bash
 set -e
@@ -139,6 +145,7 @@ echo "Access: http://localhost"
 ### Verify Script
 
 **ops/k3s-verify.sh**:
+
 ```bash
 #!/bin/bash
 set -e
@@ -167,6 +174,7 @@ echo "✅ All checks passed"
 ### Cleanup Script
 
 **ops/k3s-cleanup.sh**:
+
 ```bash
 #!/bin/bash
 set -e
