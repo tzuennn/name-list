@@ -104,5 +104,24 @@ coverage.xml
 # mypy
 .mypy_cache/
 .dmypy.json
-dmypy.json.swarm-config/
+dmypy.json
+
+# Swarm artifacts
+.swarm-config/
 evidence/
+
+# Vagrant
+.vagrant/
+*.box
+vagrant-*.log
+
+# K3s/k3d
+k3s.yaml
+node-token
+*.kubeconfig
+
+# Temporary development artifacts
+PHASE1_STATUS.md
+typescript
+*.time
+.vagrant/

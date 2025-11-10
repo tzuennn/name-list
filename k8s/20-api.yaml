@@ -1,0 +1,109 @@
+---
+# Deployment for API backend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: namelist
+  labels:
+    app: namelist
+    component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: namelist
+      component: api
+  template:
+    metadata:
+      labels:
+        app: namelist
+        component: api
+    spec:
+      # Prefer to run on server node (control plane)
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: Exists
+      containers:
+        - name: api
+          image: tzuennn/name-list-backend:latest
+          imagePullPolicy: Never # Use local image from k3d import
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: db-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: db-config
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: db-config
+                  key: POSTGRES_DB
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: db-config
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_PASSWORD
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+---
+# Service for API
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: namelist
+  labels:
+    app: namelist
+    component: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  selector:
+    app: namelist
+    component: api
